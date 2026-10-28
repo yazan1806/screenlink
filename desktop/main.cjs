@@ -1,10 +1,14 @@
 const {app,BrowserWindow,ipcMain}=require('electron');
 const path=require('node:path');
 const fs=require('node:fs/promises');
+const {existsSync}=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {spawn}=require('node:child_process');
 let window,localServer,tunnel,localOrigin,localKey,quitting=false,startup;
-const runtimeDir=path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink');
+// Portable launchers can replace environment directory values. Prefer the user's
+// stable Windows profile location where setup stored the private configuration.
+const runtimeCandidates=[path.join(app.getPath('home'),'AppData','Local','ScreenLink'),path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink')];
+const runtimeDir=runtimeCandidates.find(dir=>existsSync(path.join(dir,'server.env'))&&existsSync(path.join(dir,'cloudflared.exe')))||runtimeCandidates[0];
 function parsePrivateEnv(text){
   const values={};
   for(const line of text.split(/\r?\n/)){const match=line.match(/^([A-Z_]+)=(.*)$/);if(!match)continue;values[match[1]]=match[2].startsWith('"')?JSON.parse(match[2]):match[2];}
@@ -12,7 +16,7 @@ function parsePrivateEnv(text){
 }
 async function startPersonalConnection(){
   const configPath=path.join(runtimeDir,'server.env'),binary=path.join(runtimeDir,'cloudflared.exe');
-  try{await fs.access(configPath);await fs.access(binary);}catch{return null;}
+  try{await fs.access(configPath);await fs.access(binary);}catch{return {error:'Automatic setup files were not found for this Windows account. Your saved setup must be restored before automatic pairing can start.'};}
   await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'starting',pid:process.pid}));
   const env=parsePrivateEnv(await fs.readFile(configPath,'utf8'));
   if(!env.LIVEKIT_API_SECRET||!env.SCREENLINK_OWNER_KEY)throw Error('The private ScreenLink configuration is incomplete.');
