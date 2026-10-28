@@ -9,7 +9,15 @@ A personal iPhone-to-Windows screen mirroring app with QR pairing and internet s
 
 ## Get started
 
-[Cloud build #1 passed](https://github.com/yazan1806/screenlink/actions/runs/40773951395): iPhone compilation, Windows packaging and backend checks. Signing, phone capture and internet streaming still require installation and hosting verification.
+### Personal PC connection (v0.3)
+
+On this configured PC, the Windows app starts its private pairing service on loopback, creates a temporary Cloudflare HTTPS address, joins LiveKit as a viewer and displays a fresh QR code. Open ScreenLink on the iPhone, scan the QR, confirm the server, connect and approve Share Screen. The phone may be on mobile data or another Wi-Fi network.
+
+The private `server.env` and the official `cloudflared.exe` helper are stored in `%LOCALAPPDATA%/ScreenLink`, outside this repository. Closing the app closes the temporary connection and requests closure of its media room. A new launch creates a new address and pairing code. Cloudflare Quick Tunnels are a testing connection without an uptime guarantee; LiveKit remains the video transport. No paid backend host or Cloudflare account is used for this test. Usage remains subject to LiveKit's project quotas.
+
+For another PC or permanent hosting, follow the general setup below. The portable EXE does not contain API credentials or the separately installed Cloudflare helper.
+
+[Cloud build #1 passed](https://github.com/yazan1806/screenlink/actions/runs/40773951395): iPhone compilation, Windows packaging and backend checks. The iPhone app has since been signed and installed through AltServer. A physical iPhone stream was received successfully in the Windows app using the configured LiveKit project. Latency, sustained performance and cellular-network behavior still need measurement.
 
 Read [SETUP.md](SETUP.md) for cloud account setup, hosting, Windows launch, and signing the iPhone IPA from Windows using AltStore Classic. You do not need your own Mac. The iPhone cloud build does not require Apple credentials; signing happens on your Windows PC.
 

@@ -1,8 +1,18 @@
 # ScreenLink — your internet screen mirroring app
 
+## This PC is configured for the first test
+
+The installed phone app opens on iOS 27.0.1. The ScreenLink LiveKit project and its PC backend key are configured privately on this computer. The v0.3 Windows app can start a temporary HTTPS pairing connection using the official Cloudflare helper in `%LOCALAPPDATA%/ScreenLink`. The private environment file is stored there too, not in GitHub or the source archive.
+
+Run the updated Windows app and wait for its QR code. In the phone app choose **Scan QR → confirm server → Connect to my PC → Share Screen**, then approve entire-screen capture in Apple's picker. Keep the PC app open. A physical stream has now been verified in the Windows viewer, with both viewer and phone participants connected. A separate mobile-data test and glass-to-glass delay measurement are still needed.
+
+This temporary address changes on each app launch. Cloudflare Quick Tunnels have no uptime guarantee and are intended for testing. Video travels through LiveKit, not the HTTPS tunnel. If the tunnel stops, restart the PC app and pair again. If ending a session fails, stop sharing on the phone. No paid backend host has been created.
+
+The remaining sections document the general setup for a new PC or permanent hosting.
+
 This replaces the earlier local-only ScreenLink prototype. The new project contains your own Windows app, iPhone companion, and private pairing backend. It uses the open-source LiveKit SDK and a configurable media server. You do not install AirDroid or another mirroring product.
 
-**Current status:** Windows executable built locally and launched successfully; backend checks pass. The browser interface and missing-configuration error were checked. [GitHub build #1](https://github.com/yazan1806/screenlink/actions/runs/40773951395) successfully compiled the iPhone app, packaged the Windows app, and passed the backend checks. The unsigned IPA has been downloaded and its minimum OS version and background-capture declaration verified. No hosted service has been provisioned, and iPhone signing and physical-device capture have not been tested. You cannot mirror your iPhone yet. Follow the installation and hosting steps below. Do not enter any Apple password into the app or this chat. The Windows executable is unsigned.
+**Current status:** Windows v0.3 was built and launched locally. The backend checks pass. [GitHub build #1](https://github.com/yazan1806/screenlink/actions/runs/40773951395) compiled the installed iPhone app. Signing, installation and physical-device capture have since succeeded, and live video was received by the Windows viewer. LiveKit credentials were verified, and a temporary public pairing endpoint rejected unauthenticated control requests with HTTP 401. A real media room was created and closed successfully during the backend check. Permanent backend hosting is optional and has not been provisioned. Do not enter any Apple password into the app or this chat. The Windows executable is unsigned.
 
 ## 1. Check the iPhone version
 

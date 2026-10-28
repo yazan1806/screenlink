@@ -8,3 +8,4 @@
 **/*.xcarchive/
 **/*.ipa
 .DS_Store
+desktop/backend/

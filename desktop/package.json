@@ -1,1 +1,50 @@
-{"name":"screenlink","version":"0.2.0","private":true,"description":"Your personal iPhone screen receiver","author":"ScreenLink","type":"module","main":"main.cjs","scripts":{"dev":"vite --host 127.0.0.1","build":"vite build --base=./","start":"electron .","package":"npm run build && electron-builder --win portable --x64"},"dependencies":{"livekit-client":"2.23.0","qrcode":"1.5.4"},"devDependencies":{"electron":"45.1.0","electron-builder":"26.18.0","vite":"^7.0.0"},"build":{"appId":"personal.screenlink.desktop","productName":"ScreenLink","directories":{"output":"release"},"files":["dist/**/*","main.cjs"],"win":{"target":"portable","signAndEditExecutable":false},"artifactName":"ScreenLink-Windows-${version}.${ext}"}}
+{
+  "name": "screenlink",
+  "version": "0.3.0",
+  "private": true,
+  "description": "Your personal iPhone screen receiver",
+  "author": "ScreenLink",
+  "type": "module",
+  "main": "main.cjs",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1",
+    "build": "vite build --base=./ && esbuild ../server/app.mjs --bundle --platform=node --format=esm --outfile=backend/app.mjs",
+    "start": "electron .",
+    "package": "npm run build && electron-builder --win portable --x64"
+  },
+  "dependencies": {
+    "livekit-client": "2.23.0",
+    "qrcode": "1.5.4"
+  },
+  "devDependencies": {
+    "electron": "45.1.0",
+    "electron-builder": "26.18.0",
+    "vite": "^7.0.0"
+  },
+  "build": {
+    "appId": "personal.screenlink.desktop",
+    "productName": "ScreenLink",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "main.cjs",
+      "preload.cjs"
+    ],
+    "win": {
+      "target": "portable",
+      "signAndEditExecutable": false
+    },
+    "artifactName": "ScreenLink-Windows-${version}.${ext}",
+    "extraResources": [
+      {
+        "filter": [
+          "app.mjs"
+        ],
+        "to": "server",
+        "from": "backend"
+      }
+    ]
+  }
+}

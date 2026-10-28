@@ -6,6 +6,7 @@ COPY desktop/ ./
 RUN npm run build
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
 WORKDIR /app/server
 COPY server/package*.json ./
 RUN npm ci --omit=dev

@@ -38,3 +38,13 @@ $('#fullscreen').onclick=()=>{if(video.style.display==='none'){$('#notice').text
 if('requestVideoFrameCallback' in video){const count=()=>{frameCount++;video.requestVideoFrameCallback(count);};video.requestVideoFrameCallback(count);}
 setInterval(()=>{if(video.srcObject)$('#stats').textContent=`${video.videoWidth} × ${video.videoHeight} · ${frameCount} displayed fps · WebRTC`;else $('#stats').textContent='Waiting for a video stream';frameCount=0;if(pair&&$('#expires').textContent.startsWith('Paired')===false)$('#expires').textContent=Date.now()<pair.expires?`Single-use code · ${Math.ceil((pair.expires-Date.now())/60000)} min remaining`:'Pairing expired — end session and create a new code';},1000);
 window.addEventListener('beforeunload',()=>{room?.disconnect();});
+if(window.screenLink){
+ $('#create').disabled=true;status('Starting your personal connection…');
+ try{
+  const setup=await window.screenLink.getLocalSetup();
+  if(setup?.error)throw Error(setup.error);
+  if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();}
+  else{status('Ready to set up');$('#create').disabled=false;}
+ }catch(e){error(e);status('Connection needs attention');$('#create').disabled=false;}
+ window.screenLink.onConnectionLost(()=>{status('Pairing connection stopped');$('#error').textContent='The temporary pairing connection stopped. Stop sharing on your iPhone and restart ScreenLink.';});
+}
