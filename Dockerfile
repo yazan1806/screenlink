@@ -3,6 +3,8 @@ WORKDIR /app/desktop
 COPY desktop/package*.json ./
 RUN npm ci --ignore-scripts
 COPY desktop/ ./
+COPY server/ /app/server/
+RUN npm ci --omit=dev --prefix /app/server
 RUN npm run build
 FROM node:24-bookworm-slim
 ENV NODE_ENV=production
