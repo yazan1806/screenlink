@@ -1,0 +1,10 @@
+**/node_modules/
+**/dist/
+**/release/
+**/.env
+**/build/
+**/DerivedData/
+**/*.xcodeproj/
+**/*.xcarchive/
+**/*.ipa
+.DS_Store

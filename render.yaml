@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: screenlink
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: starter
+    numInstances: 1
+    healthCheckPath: /health
+    envVars:
+      - key: PORT
+        value: '3000'
+      - key: LIVEKIT_URL
+        sync: false
+      - key: LIVEKIT_API_KEY
+        sync: false
+      - key: LIVEKIT_API_SECRET
+        sync: false
+      - key: SCREENLINK_OWNER_KEY
+        generateValue: true

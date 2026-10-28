@@ -1,0 +1,60 @@
+name: Build ScreenLink
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  iphone:
+    name: Unsigned iPhone IPA for Windows signing
+    runs-on: xcode-27
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify iOS SDK
+        run: |
+          xcodebuild -version
+          xcodebuild -showsdks
+      - name: Install project generator
+        run: brew install xcodegen
+      - name: Generate and build
+        working-directory: ios
+        run: |
+          xcodegen generate
+          xcodebuild -resolvePackageDependencies -project ScreenLink.xcodeproj -scheme ScreenLink
+          xcodebuild -project ScreenLink.xcodeproj -scheme ScreenLink -configuration Release -destination 'generic/platform=iOS' -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY='' build
+          mkdir -p package/Payload
+          cp -R build/Build/Products/Release-iphoneos/ScreenLink.app package/Payload/
+          cd package
+          /usr/bin/zip -qr ../ScreenLink-unsigned.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScreenLink-iPhone-unsigned
+          path: ios/ScreenLink-unsigned.ipa
+  windows:
+    name: Windows portable EXE
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+        working-directory: desktop
+      - run: npm run package
+        working-directory: desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ScreenLink-Windows
+          path: desktop/release/*.exe
+  server:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - run: npm ci
+        working-directory: server
+      - run: npm test
+        working-directory: server

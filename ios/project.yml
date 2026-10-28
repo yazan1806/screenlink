@@ -1,0 +1,43 @@
+name: ScreenLink
+options:
+  bundleIdPrefix: personal.screenlink
+  deploymentTarget:
+    iOS: '27.0'
+packages:
+  LiveKit:
+    url: https://github.com/livekit/client-sdk-swift
+    exactVersion: 2.19.0
+settings:
+  base:
+    SWIFT_VERSION: '5.0'
+    SWIFT_APPROACHABLE_CONCURRENCY: YES
+    TARGETED_DEVICE_FAMILY: '1'
+    CODE_SIGN_STYLE: Automatic
+    MARKETING_VERSION: '0.2.0'
+    CURRENT_PROJECT_VERSION: '2'
+targets:
+  ScreenLink:
+    type: application
+    platform: iOS
+    sources: [App]
+    dependencies:
+      - package: LiveKit
+        product: LiveKit
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: personal.screenlink.iphone
+    info:
+      path: App/Info.plist
+      properties:
+        CFBundleDisplayName: ScreenLink
+        UILaunchScreen: {}
+        NSCameraUsageDescription: Scan the private pairing QR code displayed on your PC.
+        UIBackgroundModes: [screen-capture]
+        CFBundleURLTypes:
+          - CFBundleURLName: ScreenLink pairing
+            CFBundleURLSchemes: [screenlink]
+schemes:
+  ScreenLink:
+    build:
+      targets:
+        ScreenLink: all
