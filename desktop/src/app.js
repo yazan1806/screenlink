@@ -34,7 +34,22 @@ $('#setup').onsubmit=async e=>{
  }catch(e){error(e);await disconnectLocal();status('Setup needs attention');}finally{creating=false;$('#create').disabled=false;}
 };
 $('#copy').onclick=async()=>{try{await navigator.clipboard.writeText(link);$('#notice').textContent='Pairing link copied. Paste it into ScreenLink on the iPhone if scanning is unavailable.';}catch(e){error(e);}};
-$('#fullscreen').onclick=()=>{if(video.style.display==='none'){$('#notice').textContent='Fullscreen becomes available when your iPhone starts sharing.';return;}video.requestFullscreen().catch(error);};
+const viewer=$('#viewer');
+function fitVideo(){
+ const mode=$('#orientation').value,portrait=video.videoHeight>=video.videoWidth;
+ const rotate=(mode==='portrait'&&!portrait)||(mode==='landscape'&&portrait);
+ video.style.transform=rotate?'rotate(90deg)':'none';
+ const width=Math.max(100,viewer.clientWidth-48),height=Math.max(100,viewer.clientHeight-110);
+ video.style.width=(rotate?height:width)+'px';video.style.height=(rotate?width:height)+'px';
+}
+async function toggleFullscreen(){try{if(document.fullscreenElement)await document.exitFullscreen();else await viewer.requestFullscreen();fitVideo();}catch(e){error(e);}}
+$('#fullscreen').onclick=toggleFullscreen;
+$('#video-fullscreen').onclick=toggleFullscreen;
+$('#orientation').onchange=fitVideo;
+video.addEventListener('loadedmetadata',fitVideo);video.addEventListener('resize',fitVideo);
+window.addEventListener('resize',fitVideo);
+document.addEventListener('fullscreenchange',()=>{$('#video-fullscreen').textContent=document.fullscreenElement?'Exit fullscreen ↙':'Fullscreen ↗';fitVideo();});
+
 if('requestVideoFrameCallback' in video){const count=()=>{frameCount++;video.requestVideoFrameCallback(count);};video.requestVideoFrameCallback(count);}
 setInterval(()=>{if(video.srcObject)$('#stats').textContent=`${video.videoWidth} × ${video.videoHeight} · ${frameCount} displayed fps · WebRTC`;else $('#stats').textContent='Waiting for a video stream';frameCount=0;if(pair&&$('#expires').textContent.startsWith('Paired')===false)$('#expires').textContent=Date.now()<pair.expires?`Single-use code · ${Math.ceil((pair.expires-Date.now())/60000)} min remaining`:'Pairing expired — end session and create a new code';},1000);
 window.addEventListener('beforeunload',()=>{room?.disconnect();});

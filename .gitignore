@@ -9,3 +9,4 @@
 **/*.ipa
 .DS_Store
 desktop/backend/
+desktop/release-*/
