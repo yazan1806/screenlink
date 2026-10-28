@@ -9,6 +9,8 @@ A personal iPhone-to-Windows screen mirroring app with QR pairing and internet s
 
 ## Get started
 
+[Cloud build #1 passed](https://github.com/yazan1806/screenlink/actions/runs/40773951395): iPhone compilation, Windows packaging and backend checks. Signing, phone capture and internet streaming still require installation and hosting verification.
+
 Read [SETUP.md](SETUP.md) for cloud account setup, hosting, Windows launch, and signing the iPhone IPA from Windows using AltStore Classic. You do not need your own Mac. The iPhone cloud build does not require Apple credentials; signing happens on your Windows PC.
 
 Run the **Build ScreenLink** workflow in the repository's Actions tab. Successful jobs provide a Windows executable and an **unsigned** iPhone IPA as downloadable artifacts. The IPA needs signing before installation. A successful build does not validate physical-device capture or remote video transmission.
