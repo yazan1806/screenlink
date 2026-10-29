@@ -163,6 +163,7 @@ struct RemoteView: View {
                                         Text("Allow this iPhone to view your PC and use its mouse and keyboard. Only approve a PC you own.").foregroundStyle(.secondary)
                                         DisclosureGroup("Connection details"){Text(pendingServer).font(.caption.monospaced()).textSelection(.enabled)}
                                         Button("Allow remote access"){Task{await model.authorize()}}.buttonStyle(ScreenLinkPrimaryButton())
+                                        if model.saved {Text("This will replace the PC saved on this iPhone.").font(.footnote).foregroundStyle(.secondary)}
                                         Text("You can revoke access at any time from your PC.").font(.footnote).foregroundStyle(.secondary)
                                     }
                                 } else if model.saved {

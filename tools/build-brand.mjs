@@ -3,6 +3,8 @@ import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 import {Resvg} from '../desktop/node_modules/@resvg/resvg-js/index.js';
 import pngToIco from '../desktop/node_modules/png-to-ico/index.js';
+import pngModule from '../desktop/node_modules/pngjs/lib/png.js';
+const {PNG}=pngModule;
 const root=fileURLToPath(new URL('../',import.meta.url));
 const defs='<defs><linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#94F4DF"/><stop offset="1" stop-color="#3CCEBB"/></linearGradient><linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#C6D1FF"/><stop offset="1" stop-color="#839BFA"/></linearGradient></defs>';
 // Two offset screen corners meet to form an S: screen + link, at icon scale.
@@ -11,7 +13,8 @@ const svg=(background)=>`<svg xmlns="http://www.w3.org/2000/svg" width="1024" he
 for(const dir of ['brand','desktop/public','desktop/assets','ios/App/Assets.xcassets/AppIcon.appiconset','ios/App/Assets.xcassets/BrandIcon.imageset','ios/App/Assets.xcassets/AccentColor.colorset'])await mkdir(path.join(root,dir),{recursive:true});
 await writeFile(path.join(root,'brand/screenlink-mark.svg'),svg(false));
 await writeFile(path.join(root,'brand/screenlink-icon.svg'),svg(true));
-const png=new Resvg(svg(true),{fitTo:{mode:'width',value:1024}}).render().asPng();
+const rendered=new Resvg(svg(true),{fitTo:{mode:'width',value:1024}}).render().asPng();
+const png=PNG.sync.write(PNG.sync.read(rendered),{colorType:2});
 await writeFile(path.join(root,'brand/ScreenLink-Icon-1024.png'),png);
 for(const [name,color] of [['light','#17273B'],['dark','#F3F7FF']]){
  const lockup=`<svg xmlns="http://www.w3.org/2000/svg" width="720" height="160" viewBox="0 0 720 160">${defs}<g transform="translate(0 0) scale(.15625)">${mark}</g><text x="172" y="106" font-family="Segoe UI,Arial,sans-serif" font-size="76" font-weight="650" letter-spacing="-3" fill="${color}">ScreenLink</text></svg>`;
