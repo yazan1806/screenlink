@@ -25,7 +25,7 @@ test('owner auth, least-privilege JWT grants, exclusive claim and disconnect',as
  const claims=await Promise.all(Array.from({length:5},()=>f.call('/api/claim',{method:'POST',owner:false,data:{id:s.body.id,key:s.body.pairKey}})));
  assert.equal(claims.filter(c=>c.status===200).length,1);assert.equal(claims.filter(c=>c.status===403).length,4);
  const phone=await verify.verify(claims.find(c=>c.status===200).body.token);
- assert.equal(phone.sub,'phone');assert.equal(phone.video.canSubscribe,false);assert.equal(phone.video.canPublish,true);assert.equal(phone.video.canPublishData,false);assert.deepEqual(phone.video.canPublishSources,['screen_share']);
+ assert.equal(phone.sub,'phone');assert.equal(phone.video.canSubscribe,false);assert.equal(phone.video.canPublish,true);assert.equal(phone.video.canPublishData,false);assert.deepEqual(phone.video.canPublishSources,['screen_share','microphone']);
  assert.equal(phone.exp-phone.nbf,60);assert.equal(phone.video.room,viewer.video.room);
  assert.equal((await f.call('/api/session',{method:'DELETE'})).status,200);assert.equal(f.rooms.size,0);assert.equal((await f.call('/api/session')).body.id,null);
 });

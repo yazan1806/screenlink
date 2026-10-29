@@ -1,6 +1,6 @@
 {
   "name": "screenlink",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "private": true,
   "description": "Your personal iPhone screen receiver",
   "author": "ScreenLink",
@@ -8,7 +8,7 @@
   "main": "main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "vite build --base=./ && esbuild ../server/app.mjs --bundle --platform=node --format=esm --outfile=backend/app.mjs",
+    "build": "powershell -NoProfile -ExecutionPolicy Bypass -File build-input.ps1 && vite build --base=./ && esbuild ../server/app.mjs --bundle --platform=node --format=esm --outfile=backend/app.mjs",
     "start": "electron .",
     "package": "npm run build && electron-builder --win portable --x64"
   },
@@ -44,6 +44,10 @@
         ],
         "to": "server",
         "from": "backend"
+      },
+      {
+        "from": "InputHost.exe",
+        "to": "InputHost.exe"
       }
     ]
   }

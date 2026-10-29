@@ -13,8 +13,8 @@ settings:
     SWIFT_APPROACHABLE_CONCURRENCY: YES
     TARGETED_DEVICE_FAMILY: '1'
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: '0.2.0'
-    CURRENT_PROJECT_VERSION: '2'
+    MARKETING_VERSION: '0.4.0'
+    CURRENT_PROJECT_VERSION: '4'
 targets:
   ScreenLink:
     type: application
@@ -32,6 +32,7 @@ targets:
         CFBundleDisplayName: ScreenLink
         UILaunchScreen: {}
         NSCameraUsageDescription: Scan the private pairing QR code displayed on your PC.
+        NSFaceIDUsageDescription: Authenticate before accessing your remote PC.
         UIBackgroundModes: [screen-capture]
         CFBundleURLTypes:
           - CFBundleURLName: ScreenLink pairing

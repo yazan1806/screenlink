@@ -3,16 +3,18 @@ import {randomBytes,createHash,timingSafeEqual} from 'node:crypto';
 import {AccessToken,RoomServiceClient,TrackSource} from 'livekit-server-sdk';
 import {readFile} from 'node:fs/promises';
 import {resolve,extname} from 'node:path';
+import {createRemote} from './remote.mjs';
 const random=()=>randomBytes(24).toString('hex');
 const same=(a,b)=>typeof a==='string'&&typeof b==='string'&&timingSafeEqual(createHash('sha256').update(a).digest(),createHash('sha256').update(b).digest());
 const send=(res,status,data)=>{res.writeHead(status,{'Content-Type':'application/json'});res.end(JSON.stringify(data));};
 async function body(req){let chunks=[],length=0;for await(const chunk of req){length+=chunk.length;if(length>4096)throw Object.assign(Error('Request too large'),{status:413});chunks.push(chunk);}try{return JSON.parse(Buffer.concat(chunks).toString()||'{}');}catch{throw Object.assign(Error('Invalid JSON'),{status:400});}}
-export function createApp({config,roomService,clock=Date.now,publicDir=resolve(import.meta.dirname,'../desktop/dist')}={}){
+export function createApp({config,roomService,remoteStore,clock=Date.now,publicDir=resolve(import.meta.dirname,'../desktop/dist')}={}){
   let session=null,mutating=false;
   const limits=new Map();
   const ready=()=>Boolean(config.ownerKey?.length>=32&&config.livekitUrl?.startsWith('wss://')&&config.apiKey&&config.apiSecret);
   const service=roomService||(ready()?new RoomServiceClient(config.livekitUrl.replace(/^wss:/,'https:'),config.apiKey,config.apiSecret):null);
-  async function token(role,s){const t=new AccessToken(config.apiKey,config.apiSecret,{identity:role,name:role==='phone'?'Your iPhone':'Your PC',ttl:60});t.addGrant({room:s.room,roomJoin:true,canPublish:role==='phone',canSubscribe:role==='viewer',canPublishData:false,canPublishSources:role==='phone'?[TrackSource.SCREEN_SHARE]:[]});return t.toJwt();}
+  const remote=remoteStore?createRemote({config,service,store:remoteStore,clock}):null;
+  async function token(role,s){const t=new AccessToken(config.apiKey,config.apiSecret,{identity:role,name:role==='phone'?'Your iPhone':'Your PC',ttl:60});t.addGrant({room:s.room,roomJoin:true,canPublish:role==='phone',canSubscribe:role==='viewer',canPublishData:false,canPublishSources:role==='phone'?[TrackSource.SCREEN_SHARE,TrackSource.MICROPHONE]:[]});return t.toJwt();}
   async function end(s){await service.deleteRoom(s.room).catch(e=>{if(e.code!=='not_found'&&e.status!==404)throw e;});}
   const server=http.createServer(async(req,res)=>{
     res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');res.setHeader('Referrer-Policy','no-referrer');
@@ -25,6 +27,12 @@ export function createApp({config,roomService,clock=Date.now,publicDir=resolve(i
       if(url.pathname.startsWith('/api/')){
         if(!ready()){send(res,503,{error:'Hosting setup is incomplete. Configure LiveKit and your owner key.'});return;}
         const owner=same(req.headers.authorization,`Bearer ${config.ownerKey}`);
+        if(url.pathname.startsWith('/api/remote/')&&remote){
+          const ip=req.socket.remoteAddress,now=clock(),key='remote:'+ip;let rate=limits.get(key);
+          if(!rate||now-rate.start>60000){rate={start:now,count:0};limits.set(key,rate);}
+          if(!owner&&++rate.count>30){send(res,429,{error:'Too many attempts. Wait one minute.'});return;}
+          send(res,200,await remote(url.pathname,req.method,req.method==='POST'?await body(req):{},req.headers.authorization,owner));return;
+        }
         if(url.pathname!=='/api/claim'&&!owner){send(res,401,{error:'Your personal access key is missing or incorrect.'});return;}
         if(url.pathname==='/api/session'&&req.method==='POST'){
           if(mutating){send(res,409,{error:'A session change is already in progress.'});return;}

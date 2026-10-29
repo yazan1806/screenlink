@@ -1,10 +1,10 @@
-const {app,BrowserWindow,ipcMain}=require('electron');
+const {app,BrowserWindow,ipcMain,desktopCapturer,screen}=require('electron');
 const path=require('node:path');
 const fs=require('node:fs/promises');
 const {existsSync}=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {spawn}=require('node:child_process');
-let window,localServer,tunnel,localOrigin,localKey,quitting=false,startup;
+let window,localServer,tunnel,inputHost,localOrigin,localKey,quitting=false,startup,remoteEnabled=false;
 // Portable launchers can replace environment directory values. Prefer the user's
 // stable Windows profile location where setup stored the private configuration.
 const runtimeCandidates=[path.join(app.getPath('home'),'AppData','Local','ScreenLink'),path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink')];
@@ -23,7 +23,10 @@ async function startPersonalConnection(){
   const serverPath=app.isPackaged?path.join(process.resourcesPath,'server','app.mjs'):path.join(__dirname,'..','server','app.mjs');
   const {createApp}=await import(pathToFileURL(serverPath).href);
   localKey=env.SCREENLINK_OWNER_KEY;
-  localServer=createApp({config:{ownerKey:localKey,livekitUrl:env.LIVEKIT_URL,apiKey:env.LIVEKIT_API_KEY,apiSecret:env.LIVEKIT_API_SECRET},publicDir:path.join(__dirname,'dist')});
+  const config={ownerKey:localKey,livekitUrl:env.LIVEKIT_URL,apiKey:env.LIVEKIT_API_KEY,apiSecret:env.LIVEKIT_API_SECRET};
+  const remotePath=path.join(runtimeDir,'remote-devices.json');
+  const remoteStore={load:async()=>{try{return JSON.parse(await fs.readFile(remotePath,'utf8'));}catch(e){if(e.code==='ENOENT')return {};throw e;}},save:async value=>{await fs.writeFile(remotePath+'.tmp',JSON.stringify(value));await fs.rename(remotePath+'.tmp',remotePath);}};
+  localServer=createApp({config,remoteStore,publicDir:path.join(__dirname,'dist')});
   await new Promise((resolve,reject)=>{localServer.once('error',reject);localServer.listen(0,'127.0.0.1',resolve);});
   localOrigin=`http://127.0.0.1:${localServer.address().port}`;
   const address=await new Promise((resolve,reject)=>{
@@ -41,6 +44,7 @@ async function startPersonalConnection(){
     await new Promise(resolve=>setTimeout(resolve,1000));
   }
   if(!reachable)throw Error('The public pairing address is not reachable yet. Restart ScreenLink and try again.');
+  config.publicUrl=address;
   await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'ready',pid:process.pid,server:address,localOrigin}));
   return {server:address,owner:localKey};
 }
@@ -50,6 +54,27 @@ app.whenReady().then(()=>{
   window.webContents.on('will-navigate',e=>e.preventDefault());
   startup=startPersonalConnection().catch(async e=>{await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'error',error:e.message})).catch(()=>{});return {error:e.message};});
   ipcMain.handle('screenlink:local-setup',event=>{if(event.sender!==window.webContents)throw Error('Unsupported caller');return startup;});
+  ipcMain.handle('screenlink:remote-enabled',(event,enabled)=>{
+    if(event.sender!==window.webContents||typeof enabled!=='boolean')throw Error('Unsupported caller');
+    remoteEnabled=enabled;
+    if(!enabled){inputHost?.kill();inputHost=null;}
+  });
+  ipcMain.handle('screenlink:desktop-source',async event=>{
+    if(event.sender!==window.webContents||!remoteEnabled)throw Error('Remote access is disabled');
+    const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:0,height:0}});
+    const source=sources.find(s=>s.display_id===String(screen.getPrimaryDisplay().id));
+    if(!source)throw Error('Primary display unavailable');return source.id;
+  });
+  ipcMain.handle('screenlink:input',(event,data)=>{
+    if(event.sender!==window.webContents||!remoteEnabled||!data||JSON.stringify(data).length>8192)return;
+    if(!['click','move','scroll','key','text'].includes(data.type))return;
+    if(!inputHost){inputHost=spawn(app.isPackaged?path.join(process.resourcesPath,'InputHost.exe'):path.join(__dirname,'InputHost.exe'),[],{windowsHide:true,stdio:['pipe','ignore','ignore']});inputHost.stdin.on('error',()=>{});inputHost.on('error',()=>{inputHost=null;});inputHost.on('exit',()=>{inputHost=null;});}
+    if(inputHost?.stdin?.writable)inputHost.stdin.write(JSON.stringify(data)+'\n');
+  });
+  window.webContents.session.setDisplayMediaRequestHandler(async(request,callback)=>{
+    if(!remoteEnabled||request.frame!==window.webContents.mainFrame){callback(null);return;}
+    try{const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:0,height:0}});const primary=String(screen.getPrimaryDisplay().id);const source=sources.find(s=>s.display_id===primary);callback(source?{video:source,audio:'loopback'}:null);}catch{callback(null);}
+  });
   window.loadFile(path.join(__dirname,'dist','index.html'));
 });
 app.on('before-quit',event=>{
@@ -57,7 +82,7 @@ app.on('before-quit',event=>{
   event.preventDefault();quitting=true;
   (async()=>{
     try{await fetch(localOrigin+'/api/session',{method:'DELETE',headers:{Authorization:`Bearer ${localKey}`},signal:AbortSignal.timeout(4000)});}catch{}
-    tunnel?.kill();localServer.closeAllConnections();localServer.close();app.exit(0);
+    inputHost?.kill();tunnel?.kill();localServer.closeAllConnections();localServer.close();app.exit(0);
   })();
 });
 app.on('window-all-closed',()=>app.quit());

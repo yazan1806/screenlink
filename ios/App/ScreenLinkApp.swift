@@ -8,7 +8,17 @@ import VisionKit
 @main
 struct ScreenLinkApp: App {
     @State private var model = ShareModel()
-    var body: some Scene { WindowGroup { ShareView(model: model) } }
+    @State private var remote = RemoteModel()
+    @State private var tab = 0
+    var body: some Scene { WindowGroup {
+        TabView(selection:$tab){
+            ShareView(model:model).tabItem{Label("Mirror iPhone",systemImage:"iphone")}.tag(0)
+            RemoteView(model:remote).tabItem{Label("Remote PC",systemImage:"desktopcomputer")}.tag(1)
+        }.onOpenURL{url in
+            if url.host == "remote" {tab = 1;remote.receive(url.absoluteString)}
+            else {tab = 0;model.receive(url.absoluteString)}
+        }
+    } }
 }
 
 struct Pairing: Identifiable {
@@ -81,7 +91,7 @@ final class ShareModel {
             }
             let options = RoomOptions(
                 defaultScreenShareCaptureOptions: ScreenShareCaptureOptions(
-                    dimensions: dimensions, fps: 60, appAudio: false,
+                    dimensions: dimensions, fps: 60, appAudio: true,
                     useBroadcastExtension: false, useScreenCaptureKit: true),
                 defaultVideoPublishOptions: VideoPublishOptions(
                     screenShareEncoding: VideoEncoding(maxBitrate: bitrate, maxFps: 60), simulcast: false,
@@ -108,9 +118,13 @@ final class ShareModel {
             // to recording only this app.
             let dimensions: Dimensions = preset == "fast" ? .h720_169 : preset == "detail" ? .h1440_169 : .h1080_169
             let track = await LocalVideoTrack.createIOSScreenShareTrack(options: ScreenShareCaptureOptions(
-                dimensions: dimensions, fps: 60, useBroadcastExtension: false, useScreenCaptureKit: true))
+                dimensions: dimensions, fps: 60, appAudio: true, useBroadcastExtension: false, useScreenCaptureKit: true))
+            // Manual rendering feeds captured application audio without opening the microphone.
+            try AudioManager.shared.setManualRenderingMode(true)
             try await room.localParticipant.publish(videoTrack: track)
-            message = "Sharing your screen. You can switch to other apps."
+            let audio = await LocalAudioTrack.createTrack(name: "iPhone application audio", options: .noProcessing)
+            try await room.localParticipant.publish(audioTrack: audio, options: AudioPublishOptions(dtx: false))
+            message = "Sharing screen and app audio to the PC. Lower the iPhone speaker volume if you also hear sound locally. You can switch to other apps."
         } catch { message = error.localizedDescription }
     }
 
@@ -120,6 +134,7 @@ final class ShareModel {
         defer { working = false }
         // Disconnecting unpublishes and stops all local capture tracks.
         await room.disconnect()
+        try? AudioManager.shared.setManualRenderingMode(false)
         connected = false
         message = "Screen sharing ended. Create a new QR code on the PC to reconnect."
     }
@@ -173,7 +188,6 @@ struct ShareView: View {
             .navigationTitle("ScreenLink")
             .disabled(model.working)
             .overlay { if model.working { ProgressView().padding().background(.regularMaterial,in:RoundedRectangle(cornerRadius:16)) } }
-            .onOpenURL { model.receive($0.absoluteString) }
             .sheet(isPresented: $scanning) {
                 NavigationStack {
                     QRScanner { text in scanning = false; model.receive(text) } onError: { text in scanning = false; model.message = text }

@@ -1,6 +1,7 @@
 import {Room,RoomEvent,Track} from 'livekit-client';
 import QRCode from 'qrcode';
 import './style.css';
+import {initRemote} from './remote.js';
 const $=s=>document.querySelector(s),video=$('#video');
 let room=null,base='',owner='',pair=null,link='',poll=null,creating=false,frameCount=0;
 $('#server').value=localStorage.getItem('screenlink-server')||(location.protocol==='https:'?location.origin:'');
@@ -8,7 +9,8 @@ function error(e){$('#error').textContent=e.message||String(e);}
 async function api(path,method='GET',data){const r=await fetch(base+path,{method,headers:{Authorization:`Bearer ${owner}`,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const body=await r.json();if(!r.ok)throw Error(body.error||'Server request failed');return body;}
 function status(s){$('#status').textContent=s;}
 function hideVideo(){video.srcObject=null;video.style.display='none';$('#placeholder').hidden=false;}
-async function disconnectLocal(){clearInterval(poll);poll=null;const old=room;room=null;if(old)await old.disconnect();hideVideo();}
+const audioTracks=new Map();
+async function disconnectLocal(){clearInterval(poll);poll=null;const old=room;room=null;if(old)await old.disconnect();for(const a of audioTracks.values())a.remove();audioTracks.clear();hideVideo();}
 async function end(){try{await api('/api/session','DELETE');await disconnectLocal();pair=null;$('#pairing').hidden=true;$('#setup').hidden=false;status('Session ended');$('#error').textContent='';$('#notice').textContent='The media room was closed. Create a fresh code to reconnect.';}catch(e){error(e);}}
 $('#end').onclick=end;
 $('#setup').onsubmit=async e=>{
@@ -22,8 +24,8 @@ $('#setup').onsubmit=async e=>{
   const u=new URL('screenlink://pair');u.searchParams.set('server',base);u.searchParams.set('id',pair.id);u.searchParams.set('key',pair.pairKey);link=u.toString();
   $('#qr').src=await QRCode.toDataURL(link,{width:360,margin:2,errorCorrectionLevel:'M'});
   room=new Room({adaptiveStream:false,dynacast:true});
-  room.on(RoomEvent.TrackSubscribed,(track)=>{if(track.kind!==Track.Kind.Video||track.source!==Track.Source.ScreenShare)return;track.attach(video);video.style.display='block';$('#placeholder').hidden=true;video.play().catch(error);status('Live from your iPhone');});
-  room.on(RoomEvent.TrackUnsubscribed,track=>{track.detach();hideVideo();status('Screen sharing stopped');});
+  room.on(RoomEvent.TrackSubscribed,(track)=>{if(track.kind===Track.Kind.Audio){const a=track.attach();a.volume=Number($('#volume').value);a.muted=$('#mute-audio').checked;document.body.append(a);audioTracks.set(track.sid,a);a.play().catch(()=>{$('#notice').textContent='Click Enable PC sound to start audio playback.';});return;}if(track.source!==Track.Source.ScreenShare)return;track.attach(video);video.style.display='block';$('#placeholder').hidden=true;video.play().catch(error);status('Live from your iPhone');});
+  room.on(RoomEvent.TrackUnsubscribed,track=>{track.detach();if(track.kind===Track.Kind.Audio){audioTracks.get(track.sid)?.remove();audioTracks.delete(track.sid);return;}hideVideo();status('Screen sharing stopped');});
   room.on(RoomEvent.Reconnecting,()=>status('Reconnecting…'));
   room.on(RoomEvent.Reconnected,()=>status('Connection restored'));
   room.on(RoomEvent.ParticipantDisconnected,()=>{hideVideo();status('iPhone disconnected');});
@@ -46,6 +48,9 @@ async function toggleFullscreen(){try{if(document.fullscreenElement)await docume
 $('#fullscreen').onclick=toggleFullscreen;
 $('#video-fullscreen').onclick=toggleFullscreen;
 $('#orientation').onchange=fitVideo;
+$('#enable-audio').onclick=()=>room?.startAudio().catch(error);
+function updateAudio(){for(const a of audioTracks.values()){a.volume=Number($('#volume').value);a.muted=$('#mute-audio').checked;}}
+$('#volume').oninput=updateAudio;$('#mute-audio').onchange=updateAudio;
 video.addEventListener('loadedmetadata',fitVideo);video.addEventListener('resize',fitVideo);
 window.addEventListener('resize',fitVideo);
 document.addEventListener('fullscreenchange',()=>{$('#video-fullscreen').textContent=document.fullscreenElement?'Exit fullscreen ↙':'Fullscreen ↗';fitVideo();});
@@ -58,7 +63,7 @@ if(window.screenLink){
  try{
   const setup=await window.screenLink.getLocalSetup();
   if(setup?.error)throw Error(setup.error);
-  if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();}
+  if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;base=setup.server;owner=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();$('#remote-panel').hidden=false;await initRemote(api);}
   else{status('Ready to set up');$('#create').disabled=false;}
  }catch(e){error(e);status('Connection needs attention');$('#create').disabled=false;}
  window.screenLink.onConnectionLost(()=>{status('Pairing connection stopped');$('#error').textContent='The temporary pairing connection stopped. Stop sharing on your iPhone and restart ScreenLink.';});
