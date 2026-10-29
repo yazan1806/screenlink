@@ -1,3 +1,18 @@
+# Version 0.5.0: fullscreen, touchpad mouse, saved PC
+
+- A true full-screen cover replaces the old stacked fullscreen layout. It hides navigation/tab bars, status bar and the large keyboard/control rows. Rotate to landscape while connected to open it automatically. Compact keyboard/mouse/exit overlays remain available. Fill covers the phone display (cropping when aspect ratios differ); Fit shows the complete desktop with proportional borders.
+- The desktop acts as a touchpad with a visible pointer: swipe to move, tap for left click, double tap for double click, two-finger tap for right click, two-finger pan for scrolling, and hold then move to drag. Mouse buttons are released on disconnect, backgrounding, helper EOF and after a ten-second held-button inactivity timeout.
+- Saved authorization is detected from Keychain rather than a separate preferences flag. The app opens the Remote PC tab when a credential is saved. Connect to saved PC uses Face ID/passcode and address discovery; it needs no new QR after the initial authorization. Existing PC device authorizations are preserved.
+- The PC stays connected to its metadata-only discovery room so the room cannot expire while idle. Its discovery credential grants no media, subscription or data privileges. This adds an active LiveKit connection while remote access is enabled; project quotas still apply.
+
+Checks: backend tests cover a changed public PC address with the same device credential and discovery-room identity, as well as revoked access and least-privilege discovery grants. Native input helper compiled and release/EOF exit passed. Windows package built. iPhone and Windows cloud builds passed: https://github.com/yazan1806/screenlink/actions/runs/40931334745 . IPA 0.5.0 build 5 declares both landscape orientations. The installed PC host and metadata-only discovery participant were both observed connected through the real LiveKit service. One existing authorized device was preserved. New fullscreen layout and mouse gestures still need physical-phone verification after installing the IPA.
+
+Keep the PC on, signed in and running ScreenLink. Free Apple-ID signing still expires after seven days unless refreshed; QR-free remote access does not renew an expired app. See https://faq.altstore.io/altstore-classic/your-altstore and https://faq.altstore.io/altstore-classic/altserver .
+
+---
+
+Previous release notes:
+
 # ScreenLink Windows 0.4.1 / iPhone 0.4.0 upgrade
 
 Implemented in source:
