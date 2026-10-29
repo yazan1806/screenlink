@@ -2,9 +2,9 @@ import {Room,RoomEvent,Track} from 'livekit-client';
 import QRCode from 'qrcode';
 export async function initRemote(api){
  const $=s=>document.querySelector(s),note=$('#remote-status');
- let room=null,stream=null,allowed=new Set(),capturePromise=null,refreshTimer=null;
+ let room=null,discoveryRoom=null,stream=null,allowed=new Set(),capturePromise=null,refreshTimer=null;
  function stopCapture(){stream?.getTracks().forEach(t=>t.stop());stream=null;}
- async function close(){clearInterval(refreshTimer);refreshTimer=null;await room?.disconnect();room=null;stopCapture();await window.screenLink?.setRemoteEnabled(false);}
+ async function close(){clearInterval(refreshTimer);refreshTimer=null;await window.screenLink?.releaseInput();await room?.disconnect();await discoveryRoom?.disconnect();discoveryRoom=null;room=null;stopCapture();await window.screenLink?.setRemoteEnabled(false);}
  async function capture(){
   if(stream||capturePromise)return;
   capturePromise=(async()=>{
@@ -29,16 +29,18 @@ export async function initRemote(api){
  async function host(){
   await close();const access=await api('/api/remote/host','POST');allowed=new Set(access.devices);
   await window.screenLink.setRemoteEnabled(true);
+  discoveryRoom=new Room();
+  await discoveryRoom.connect(access.serverUrl,access.discoveryToken,{autoSubscribe:false});
   room=new Room({adaptiveStream:false,dynacast:true});
   room.on(RoomEvent.ParticipantConnected,p=>{if(allowed.has(p.identity))capture();});
-  room.on(RoomEvent.ParticipantDisconnected,async()=>{if(!room)return;if(![...room.remoteParticipants.values()].some(p=>allowed.has(p.identity))){for(const pub of room.localParticipant.trackPublications.values())if(pub.track)await room.localParticipant.unpublishTrack(pub.track);stopCapture();note.textContent='Remote access ready · no iPhone connected';}});
+  room.on(RoomEvent.ParticipantDisconnected,async()=>{if(!room)return;if(![...room.remoteParticipants.values()].some(p=>allowed.has(p.identity))){await window.screenLink.releaseInput();for(const pub of room.localParticipant.trackPublications.values())if(pub.track)await room.localParticipant.unpublishTrack(pub.track);stopCapture();note.textContent='Remote access ready · no iPhone connected';}});
   let count=0,start=0;
   room.on(RoomEvent.DataReceived,(bytes,participant,kind,topic)=>{
    if(!participant||!allowed.has(participant.identity)||topic!=='screenlink-input'||bytes.length>8192||!stream)return;
    const now=Date.now();if(now-start>1000){start=now;count=0;}if(++count>120)return;
    try{const data=JSON.parse(new TextDecoder().decode(bytes));window.screenLink.sendInput(data);}catch{}
   });
-  room.on(RoomEvent.Disconnected,()=>{stopCapture();note.textContent='Remote connection lost. Restart ScreenLink to restore access.';});
+  room.on(RoomEvent.Disconnected,()=>{window.screenLink.releaseInput();stopCapture();note.textContent='Remote connection lost. Restart ScreenLink to restore access.';});
   await room.connect(access.serverUrl,access.token,{autoSubscribe:false});
   for(const p of room.remoteParticipants.values())if(allowed.has(p.identity))await capture();
   refreshTimer=setInterval(()=>refresh().catch(e=>{note.textContent=e.message;}),5000);

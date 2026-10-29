@@ -38,7 +38,7 @@ export function createRemote({config,service,store,clock=Date.now}){
   if(path==='/api/remote/host'&&method==='POST'&&owner){
    if(!s.enabled)throw Object.assign(Error('Remote access is disabled.'),{status:403});
    await discovery(s);await service.createRoom({name:s.room,maxParticipants:2,emptyTimeout:120});
-   return {serverUrl:config.livekitUrl,token:await jwt('pc-host',s.room,'host'),devices:s.devices.map(d=>`device-${d.id}`)};
+   return {serverUrl:config.livekitUrl,token:await jwt('pc-host',s.room,'host'),discoveryToken:await jwt('pc-discovery',s.discovery,'discovery'),devices:s.devices.map(d=>`device-${d.id}`)};
   }
   if(path==='/api/remote/connect'&&method==='POST'){
    const key=authorization?.startsWith('Bearer ')?authorization.slice(7):'';

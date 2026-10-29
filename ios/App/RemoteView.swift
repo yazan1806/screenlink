@@ -18,7 +18,16 @@ final class RemoteModel {
     var pending: URL?
     var connected = false
     var working = false
-    var saved = UserDefaults.standard.bool(forKey: "remoteDeviceSaved")
+    var saved = RemoteModel.hasSavedCredential()
+    var pointer = CGPoint(x: 0.5, y: 0.5)
+    var dragging = false
+    @ObservationIgnored private var inputTask: Task<Void,Never>?
+    @ObservationIgnored private var lastMove = Date.distantPast
+    static func hasSavedCredential() -> Bool {
+        let query: [String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"personal.screenlink",kSecAttrAccount as String:"ScreenLinkRemoteDevice",kSecReturnAttributes as String:true,kSecMatchLimit as String:kSecMatchLimitOne]
+        var attributes: CFTypeRef?
+        return SecItemCopyMatching(query as CFDictionary,&attributes) == errSecSuccess
+    }
     @ObservationIgnored let room = Room()
     private let account = "ScreenLinkRemoteDevice"
 
@@ -89,14 +98,36 @@ final class RemoteModel {
             let access: Access = try await request(server,path:"api/remote/connect",key:device.key)
             try AudioManager.shared.setManualRenderingMode(false)
             try await room.connect(url:access.serverUrl,token:access.token)
-            connected = true;message = "Tap the desktop to click. Use the controls below to type or scroll."
+            connected = true;message = "Swipe to move the mouse. Tap to click; use two fingers to scroll. Hold, then move to drag."
         } catch { await discovery.disconnect();await room.disconnect();message = error.localizedDescription }
     }
     func send(_ value: [String:Any]) {
         guard connected, let data = try? JSONSerialization.data(withJSONObject:value) else { return }
-        Task { do { try await room.localParticipant.publish(data:data,options:DataPublishOptions(topic:"screenlink-input",reliable:true)) } catch {message = error.localizedDescription} }
+        let previous = inputTask
+        inputTask = Task { [weak self] in
+            await previous?.value
+            guard let self, self.connected else { return }
+            do { try await self.room.localParticipant.publish(data:data,options:DataPublishOptions(topic:"screenlink-input",reliable:true)) }
+            catch { self.message = error.localizedDescription }
+        }
     }
-    func stop() async {await room.disconnect();connected = false;message = "Disconnected from your PC."}
+    func moveMouse(_ delta: CGSize, in size: CGSize) {
+        pointer.x = min(1,max(0,pointer.x + delta.width / max(1,size.width) * 1.4))
+        pointer.y = min(1,max(0,pointer.y + delta.height / max(1,size.height) * 1.4))
+        if Date().timeIntervalSince(lastMove) >= 1.0 / 60.0 {
+            lastMove = Date(); send(["type":"move","x":Double(pointer.x),"y":Double(pointer.y)])
+        }
+    }
+    func clickMouse(_ type: String = "click") { send(["type":type,"x":Double(pointer.x),"y":Double(pointer.y)]) }
+    func dragMouse(_ held: Bool) {
+        dragging = held
+        clickMouse(held ? "mouseDown" : "mouseUp")
+    }
+    func releaseMouse() { dragging = false;send(["type":"release"] ) }
+    func stop() async {
+        releaseMouse();await inputTask?.value
+        await room.disconnect();connected = false;message = "PC saved. Connect again from anywhere without scanning a QR."
+    }
     func forget() {
         let query:[String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"personal.screenlink",kSecAttrAccount as String:account]
         SecItemDelete(query as CFDictionary);saved = false;UserDefaults.standard.removeObject(forKey:"remoteDeviceSaved")
@@ -107,55 +138,39 @@ final class RemoteModel {
 struct RemoteView: View {
     @Bindable var model: RemoteModel
     @State private var scanning = false
-    @State private var text = ""
     @State private var fullscreen = false
     var body: some View {
         NavigationStack {
-            VStack(spacing:12) {
-                if !fullscreen { Text(model.message).font(.footnote).padding(.horizontal) }
-                if model.connected {
-                    TimelineView(.periodic(from:.now,by:0.5)) { _ in
-                        if let track = model.room.remoteParticipants.values.first?.videoTracks.first?.track as? VideoTrack {
-                            GeometryReader { geo in
-                                let d = track.dimensions
-                                let ratio = CGFloat(d?.width ?? 1920) / CGFloat(max(1,d?.height ?? 1080))
-                                let w = min(geo.size.width,geo.size.height * ratio)
-                                let h = w / ratio
-                                SwiftUIVideoView(track,layoutMode:.fit,mirrorMode:.off)
-                                    .frame(width:w,height:h)
-                                    .contentShape(Rectangle())
-                                    .gesture(SpatialTapGesture().onEnded {tap in model.send(["type":"click","x":Double(tap.location.x / w),"y":Double(tap.location.y / h)])})
-                                    .position(x:geo.size.width / 2,y:geo.size.height / 2)
-                            }.background(.black)
-                        } else {ProgressView("Waiting for PC screen…").frame(maxWidth:.infinity,maxHeight:.infinity)}
+            GeometryReader { geo in
+                VStack(spacing:16) {
+                    if model.connected {
+                        RemoteSessionView(model:model,fullscreen:false,onFullscreen:{fullscreen = true})
+                    } else {
+                        Text(model.message).font(.footnote).padding(.horizontal)
+                        if model.saved {
+                            Label("Your saved PC",systemImage:"desktopcomputer").font(.title2.bold())
+                            Button("Connect to saved PC"){Task{await model.connect()}}.buttonStyle(.borderedProminent).controlSize(.large)
+                            Text("Use Face ID or your passcode. Connect over mobile data or another Wi-Fi network—even from another country. No QR is needed after authorization.").font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
+                        }
+                        Button(model.saved ? "Authorize a different PC" : "Authorize a PC · scan once"){scanning = true}
+                        if model.pending != nil {Button("Authorize this PC"){Task{await model.authorize()}}.buttonStyle(.borderedProminent)}
+                        if model.saved {Button("Forget saved PC",role:.destructive){model.forget()}}
+                        Text("Keep the PC on, signed in and running ScreenLink. Windows sign-in and security prompts cannot be controlled remotely.").font(.footnote).foregroundStyle(.secondary).padding()
+                        Spacer()
                     }
-                    HStack {
-                        Button("Scroll ↑"){model.send(["type":"scroll","delta":360])}
-                        Button("Scroll ↓"){model.send(["type":"scroll","delta":-360])}
-                        Button(fullscreen ? "Exit fullscreen" : "Fullscreen"){fullscreen.toggle()}
-                    }.font(.footnote)
-                    HStack {
-                        TextField("Type on PC",text:$text).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
-                        Button("Send"){model.send(["type":"text","text":String(text.prefix(1024))]);text = ""}
-                    }.padding(.horizontal)
-                    HStack {
-                        ForEach(["Enter","Backspace","Tab","Escape"],id:\.self){key in Button(key){model.send(["type":"key","key":key])}}
-                    }.font(.caption)
-                    Button("Disconnect",role:.destructive){Task{await model.stop()}}
-                } else {
-                    if model.saved {Button("Connect to my PC"){Task{await model.connect()}}.buttonStyle(.borderedProminent)}
-                    Button("Scan Remote PC authorization QR"){scanning = true}
-                    if model.pending != nil {Button("Authorize this PC"){Task{await model.authorize()}}.buttonStyle(.borderedProminent)}
-                    if model.saved {Button("Forget saved PC",role:.destructive){model.forget()}}
-                    Text("Your PC must be on, signed in, and running ScreenLink. Remote access works over different networks. Windows security prompts and the sign-in screen cannot be controlled.").font(.footnote).foregroundStyle(.secondary).padding()
-                    Spacer()
                 }
+                .onChange(of:geo.size.width > geo.size.height){_,landscape in if landscape && model.connected {fullscreen = true}}
+                .onChange(of:model.connected){_,connected in if connected && geo.size.width > geo.size.height {fullscreen = true};if !connected {fullscreen = false}}
             }
-            .navigationTitle(fullscreen ? "" : "Remote PC")
-            .toolbar(fullscreen ? .hidden : .visible,for:.navigationBar)
+            .navigationTitle("Remote PC")
             .disabled(model.working)
             .overlay{if model.working {ProgressView().padding().background(.regularMaterial)}}
             .sheet(isPresented:$scanning){NavigationStack{QRScanner{text in scanning = false;model.receive(text)}onError:{error in scanning = false;model.message = error}.toolbar{Button("Cancel"){scanning = false}}}}
+            .fullScreenCover(isPresented:$fullscreen){
+                RemoteSessionView(model:model,fullscreen:true,onFullscreen:{fullscreen = false})
+                    .ignoresSafeArea().statusBarHidden(true).persistentSystemOverlays(.hidden)
+                    .onChange(of:model.connected){_,connected in if !connected {fullscreen = false}}
+            }
         }
     }
 }

@@ -20,17 +20,25 @@ test('remote credentials are separate, one-use, hashed, least privilege and revo
  const discovery=await verifier.verify(device.discoveryToken);
  assert.equal(discovery.video.canPublish,false);assert.equal(discovery.video.canSubscribe,false);assert.equal(discovery.video.canPublishData,false);
  const host=await call('/api/remote/host','POST',{},null,true);
+ const keeper=await verifier.verify(host.discoveryToken);
+ assert.equal(keeper.video.room,discovery.video.room);assert.equal(keeper.video.canSubscribe,false);assert.equal(keeper.video.canPublish,false);assert.equal(keeper.video.canPublishData,false);
  const h=await verifier.verify(host.token);assert.equal(h.video.canPublish,true);assert.equal(h.video.canPublishData,false);assert.deepEqual(h.video.canPublishSources,['screen_share','screen_share_audio']);
  await assert.rejects(call('/api/remote/connect','POST',{},'Bearer wrong',false),e=>e.status===401);
  const access=await call('/api/remote/connect','POST',{},`Bearer ${device.key}`,false);
  const controller=await verifier.verify(access.token);
  assert.equal(controller.video.canPublish,false);assert.equal(controller.video.canSubscribe,true);assert.equal(controller.video.canPublishData,true);assert.equal(controller.exp-controller.nbf,60);
  assert.deepEqual(host.devices,[controller.sub]);
+ // A PC restart changes its tunnel address, not the authorized device or discovery room.
+ config.publicUrl='https://restarted.example';
+ const restarted=await call('/api/remote/host','POST',{},null,true);
+ assert.equal((await verifier.verify(restarted.discoveryToken)).video.room,discovery.video.room);
+ assert.equal(metadata.at(-1).server,'https://restarted.example');
+ assert.equal((await call('/api/remote/connect','POST',{},`Bearer ${device.key}`,false)).serverUrl,config.livekitUrl);
  await call('/api/remote/revoke','POST',{},null,true);
  assert.equal(deleted[0],controller.video.room);
  await assert.rejects(call('/api/remote/connect','POST',{},`Bearer ${device.key}`,false),e=>e.status===401);
  await call('/api/remote/enable','POST',{},null,true);assert.notEqual(saved.room,controller.video.room);
  const expired=await call('/api/remote/pair','POST',{},null,true);now=expired.expires+1;
  await assert.rejects(call('/api/remote/claim','POST',expired,null,false),e=>e.status===403);
- assert.ok(metadata.every(m=>m.server===config.publicUrl));
+ assert.equal(metadata[0].server,'https://test.example');assert.equal(metadata.at(-1).server,config.publicUrl);
 });

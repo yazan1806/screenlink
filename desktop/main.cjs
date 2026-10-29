@@ -13,6 +13,12 @@ let window,localServer,tunnel,inputHost,localOrigin,localKey,powerBlock,quitting
 // stable Windows profile location where setup stored the private configuration.
 const runtimeCandidates=[path.join(app.getPath('home'),'AppData','Local','ScreenLink'),path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink')];
 const runtimeDir=runtimeCandidates.find(dir=>existsSync(path.join(dir,'server.env'))&&existsSync(path.join(dir,'cloudflared.exe')))||runtimeCandidates[0];
+function stopInputHost(){
+  const host=inputHost;inputHost=null;
+  if(!host)return;
+  if(host.stdin.writable)host.stdin.end(JSON.stringify({type:'release'})+'\n');
+  setTimeout(()=>{if(host.exitCode===null)host.kill();},2000).unref();
+}
 function parsePrivateEnv(text){
   const values={};
   for(const line of text.split(/\r?\n/)){const match=line.match(/^([A-Z_]+)=(.*)$/);if(!match)continue;values[match[1]]=match[2].startsWith('"')?JSON.parse(match[2]):match[2];}
@@ -70,7 +76,7 @@ app.whenReady().then(()=>{
       if(source&&path.resolve(source)!==path.resolve(installed))await fs.copyFile(source,installed);
       if(existsSync(installed))app.setLoginItemSettings({name:'ScreenLink',openAtLogin:true,path:installed});
     }else app.setLoginItemSettings({name:'ScreenLink',openAtLogin:false,path:installed});
-    if(!enabled){inputHost?.kill();inputHost=null;}
+    if(!enabled)stopInputHost();
   });
   ipcMain.handle('screenlink:desktop-source',async event=>{
     if(event.sender!==window.webContents||!remoteEnabled)throw Error('Remote access is disabled');
@@ -80,10 +86,11 @@ app.whenReady().then(()=>{
   });
   ipcMain.handle('screenlink:input',(event,data)=>{
     if(event.sender!==window.webContents||!remoteEnabled||!data||JSON.stringify(data).length>8192)return;
-    if(!['click','move','scroll','key','text'].includes(data.type))return;
-    if(!inputHost){inputHost=spawn(app.isPackaged?path.join(process.resourcesPath,'InputHost.exe'):path.join(__dirname,'InputHost.exe'),[],{windowsHide:true,stdio:['pipe','ignore','ignore']});inputHost.stdin.on('error',()=>{});inputHost.on('error',()=>{inputHost=null;});inputHost.on('exit',()=>{inputHost=null;});}
+    if(!['click','doubleClick','rightClick','mouseDown','mouseUp','release','move','scroll','key','text'].includes(data.type))return;
+    if(!inputHost){const host=spawn(app.isPackaged?path.join(process.resourcesPath,'InputHost.exe'):path.join(__dirname,'InputHost.exe'),[],{windowsHide:true,stdio:['pipe','ignore','ignore']});inputHost=host;host.stdin.on('error',()=>{});const clear=()=>{if(inputHost===host)inputHost=null;};host.on('error',clear);host.on('exit',clear);}
     if(inputHost?.stdin?.writable)inputHost.stdin.write(JSON.stringify(data)+'\n');
   });
+  ipcMain.handle('screenlink:release-input',event=>{if(event.sender===window.webContents)stopInputHost();});
   window.webContents.session.setDisplayMediaRequestHandler(async(request,callback)=>{
     if(!remoteEnabled||request.frame!==window.webContents.mainFrame){callback(null);return;}
     try{const sources=await desktopCapturer.getSources({types:['screen'],thumbnailSize:{width:0,height:0}});const primary=String(screen.getPrimaryDisplay().id);const source=sources.find(s=>s.display_id===primary);callback(source?{video:source,audio:'loopback'}:null);}catch{callback(null);}
@@ -93,9 +100,10 @@ app.whenReady().then(()=>{
 app.on('before-quit',event=>{
   if(quitting||!localServer)return;
   event.preventDefault();quitting=true;
+  stopInputHost();
   (async()=>{
     try{await fetch(localOrigin+'/api/session',{method:'DELETE',headers:{Authorization:`Bearer ${localKey}`},signal:AbortSignal.timeout(4000)});}catch{}
-    inputHost?.kill();tunnel?.kill();localServer.closeAllConnections();localServer.close();app.exit(0);
+    tunnel?.kill();localServer.closeAllConnections();localServer.close();app.exit(0);
   })();
 });
 app.on('window-all-closed',()=>app.quit());

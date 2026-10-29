@@ -9,7 +9,7 @@ import VisionKit
 struct ScreenLinkApp: App {
     @State private var model = ShareModel()
     @State private var remote = RemoteModel()
-    @State private var tab = 0
+    @State private var tab = RemoteModel.hasSavedCredential() ? 1 : 0
     var body: some Scene { WindowGroup {
         TabView(selection:$tab){
             ShareView(model:model).disabled(remote.connected).tabItem{Label("Mirror iPhone",systemImage:"iphone")}.tag(0)
