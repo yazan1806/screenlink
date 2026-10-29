@@ -7,12 +7,14 @@ let room=null,base='',owner='',pair=null,link='',poll=null,creating=false,frameC
 $('#server').value=localStorage.getItem('screenlink-server')||(location.protocol==='https:'?location.origin:'');
 function error(e){$('#error').textContent=e.message||String(e);}
 async function api(path,method='GET',data){const r=await fetch(base+path,{method,headers:{Authorization:`Bearer ${owner}`,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const body=await r.json();if(!r.ok)throw Error(body.error||'Server request failed');return body;}
-function status(s){$('#status').textContent=s;}
+let mirrorStatus='Getting ready…';
+function status(s){mirrorStatus=s;if($('#tab-mirror').getAttribute('aria-pressed')==='true')$('#status').textContent=s;}
 function showMode(mode){
  const remote=mode==='remote';$('#viewer').hidden=remote;$('#mirror-sidebar').hidden=remote;$('#remote-panel').hidden=!remote;
  $('#tab-mirror').setAttribute('aria-pressed',String(!remote));$('#tab-remote').setAttribute('aria-pressed',String(remote));
- $('#fullscreen').hidden=remote;localStorage.setItem('screenlink-mode',mode);
+ $('#fullscreen').hidden=remote;$('#status').textContent=remote?$('#remote-status').textContent:mirrorStatus;localStorage.setItem('screenlink-mode',mode);
 }
+new MutationObserver(()=>{if($('#tab-remote').getAttribute('aria-pressed')==='true')$('#status').textContent=$('#remote-status').textContent;}).observe($('#remote-status'),{childList:true,subtree:true,characterData:true});
 $('#tab-mirror').onclick=()=>showMode('mirror');$('#tab-remote').onclick=()=>showMode('remote');
 $('#open-help').onclick=()=>$('#help-dialog').showModal();$('#close-help').onclick=()=>$('#help-dialog').close();
 const savedPreset=localStorage.getItem('screenlink-preset');if(['fast','balanced','detail'].includes(savedPreset))$('#preset').value=savedPreset;

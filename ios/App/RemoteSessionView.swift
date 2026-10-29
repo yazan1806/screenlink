@@ -29,8 +29,7 @@ struct RemoteSessionView: View {
                                 .allowsHitTesting(false)
                             Image(systemName:"cursorarrow")
                                 .font(.system(size:27,weight:.bold))
-                                .foregroundStyle(.white)
-        .environment(\.colorScheme,.dark).shadow(color:.black,radius:2)
+                                .foregroundStyle(.white).shadow(color:.black,radius:2)
                                 .position(x:(geo.size.width-width)/2 + model.pointer.x*width + 8,
                                           y:(geo.size.height-height)/2 + model.pointer.y*height + 11)
                                 .allowsHitTesting(false)
@@ -73,6 +72,7 @@ struct RemoteSessionView: View {
             .padding(.top,fullscreen ? 12 : 8).padding(.trailing,fullscreen ? 54 : 10)
         }
         .foregroundStyle(.white)
+        .environment(\.colorScheme,.dark)
         .sheet(isPresented:$keyboard){
             VStack(spacing:16) {
                 Text("Type on your PC").font(.headline)

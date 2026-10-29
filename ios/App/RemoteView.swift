@@ -72,7 +72,7 @@ final class RemoteModel {
             item[kSecValueData as String] = try JSONEncoder().encode(device)
             item[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlockedThisDeviceOnly
             guard SecItemAdd(item as CFDictionary,nil) == errSecSuccess else { throw ShareError.message("Could not save the remote credential in Keychain.") }
-            saved = true; UserDefaults.standard.set(true, forKey:"remoteDeviceSaved");self.pending = nil
+            saved = true; self.pending = nil
             message = "PC saved. Connect with Face ID or your device passcode. Keep ScreenLink running on the PC."
         } catch { message = error.localizedDescription }
     }
@@ -130,7 +130,7 @@ final class RemoteModel {
     }
     func forget() {
         let query:[String:Any] = [kSecClass as String:kSecClassGenericPassword,kSecAttrService as String:"personal.screenlink",kSecAttrAccount as String:account]
-        SecItemDelete(query as CFDictionary);saved = false;UserDefaults.standard.removeObject(forKey:"remoteDeviceSaved")
+        SecItemDelete(query as CFDictionary);saved = false
         message = "PC removed from this iPhone. You can also revoke authorization from Windows."
     }
 }
