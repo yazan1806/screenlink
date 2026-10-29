@@ -2,7 +2,7 @@ import {Room,RoomEvent,Track} from 'livekit-client';
 import QRCode from 'qrcode';
 export async function initRemote(api){
  const $=s=>document.querySelector(s),note=$('#remote-status');
- let room=null,discoveryRoom=null,stream=null,allowed=new Set(),capturePromise=null,refreshTimer=null;
+ let room=null,discoveryRoom=null,stream=null,allowed=new Set(),capturePromise=null,refreshTimer=null,pendingCount=null,pendingExpiry=0;
  function stopCapture(){stream?.getTracks().forEach(t=>t.stop());stream=null;}
  async function close(){clearInterval(refreshTimer);refreshTimer=null;await window.screenLink?.releaseInput();await room?.disconnect();await discoveryRoom?.disconnect();discoveryRoom=null;room=null;stopCapture();await window.screenLink?.setRemoteEnabled(false);}
  async function capture(){
@@ -24,7 +24,13 @@ export async function initRemote(api){
   if(!s.enabled){await close();return;}
   allowed=new Set(s.devices.map(d=>`device-${d.id}`));
   if(room)for(const p of room.remoteParticipants.values())if(allowed.has(p.identity))await capture();
-  $('#remote-devices').textContent=`${s.devices.length} authorized iPhone${s.devices.length===1?'':'s'}`;
+  $('#remote-devices').textContent=`${s.devices.length} saved iPhone${s.devices.length===1?'':'s'}`;
+  if(pendingCount!==null&&(s.devices.length>pendingCount||Date.now()>pendingExpiry)){
+   const added=s.devices.length>pendingCount;pendingCount=null;$('#remote-qr').hidden=true;$('#remote-code-empty').hidden=false;
+   $('#remote-code-title').textContent=added?'Your iPhone is added':'Code expired';
+   $('#remote-code-message').textContent=added?'Open My PC on your iPhone and tap Connect. No new code needed.':'Choose Add iPhone to create a fresh private code.';
+   note.textContent=added?'iPhone added. You can now connect from your saved PC.':'The unused code expired. Your existing devices remain authorized.';
+  }
  }
  async function host(){
   await close();const access=await api('/api/remote/host','POST');allowed=new Set(access.devices);
@@ -49,8 +55,11 @@ export async function initRemote(api){
  }
  $('#remote-enable').onclick=async()=>{try{await api('/api/remote/enable','POST');await host();}catch(e){note.textContent=e.message;}};
  $('#remote-authorize').onclick=async()=>{
-  try{const p=await api('/api/remote/pair','POST');const setup=await window.screenLink.getLocalSetup();const u=new URL('screenlink://remote');u.searchParams.set('server',setup.server);u.searchParams.set('id',p.id);u.searchParams.set('key',p.key);$('#remote-qr').src=await QRCode.toDataURL(u.href,{width:360,margin:2});$('#remote-qr').hidden=false;note.textContent='Scan in the iPhone Remote PC tab. This authorizes unattended desktop access. Expires in 10 minutes.';}catch(e){note.textContent=e.message;}
+  try{const s=await api('/api/remote/status');pendingCount=s.devices.length;const p=await api('/api/remote/pair','POST');pendingExpiry=p.expires;const setup=await window.screenLink.getLocalSetup();const u=new URL('screenlink://remote');u.searchParams.set('server',setup.server);u.searchParams.set('id',p.id);u.searchParams.set('key',p.key);$('#remote-qr').src=await QRCode.toDataURL(u.href,{width:360,margin:2});$('#remote-qr').hidden=false;$('#remote-code-empty').hidden=true;$('#remote-code-title').textContent='Scan in My PC on your iPhone';note.textContent='Private authorization code · expires in 10 minutes. Scan only on an iPhone you want to control this PC.';}catch(e){note.textContent=e.message;}
  };
- $('#remote-revoke').onclick=async()=>{try{await api('/api/remote/revoke','POST');await close();$('#remote-qr').hidden=true;$('#remote-enable').hidden=false;$('#remote-authorize').hidden=true;$('#remote-revoke').hidden=true;$('#remote-devices').textContent='No authorized devices';note.textContent='Remote access disabled. All device credentials revoked.';}catch(e){note.textContent=e.message;}};
- try{const s=await api('/api/remote/status');if(s.enabled)await host();}catch(e){note.textContent=e.message;}
+ $('#remote-revoke').onclick=()=>$('#revoke-dialog').showModal();
+ $('#cancel-revoke').onclick=()=>$('#revoke-dialog').close();
+ $('#confirm-revoke').onclick=async()=>{
+ $('#revoke-dialog').close();pendingCount=null;try{await api('/api/remote/revoke','POST');await close();$('#remote-qr').hidden=true;$('#remote-code-empty').hidden=false;$('#remote-code-title').textContent='Connect your iPhone';$('#remote-enable').hidden=false;$('#remote-authorize').hidden=true;$('#remote-revoke').hidden=true;$('#remote-devices').textContent='No authorized devices';note.textContent='Remote access disabled. All device credentials revoked.';}catch(e){note.textContent=e.message;}};
+ try{const s=await api('/api/remote/status');if(s.enabled){await host();await refresh();}else{note.textContent='Remote access is off. Enable it to add your iPhone.';}}catch(e){note.textContent=e.message;}
 }

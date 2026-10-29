@@ -136,41 +136,76 @@ final class RemoteModel {
 }
 
 struct RemoteView: View {
-    @Bindable var model: RemoteModel
-    @State private var scanning = false
-    @State private var fullscreen = false
-    var body: some View {
+    @Bindable var model:RemoteModel
+    @State private var scanning=false
+    @State private var fullscreen=false
+    @State private var help=false
+    var pendingServer:String {
+        guard let url=model.pending else{return ""}
+        return URLComponents(url:url,resolvingAgainstBaseURL:false)?.queryItems?.first(where:{$0.name == "server"})?.value ?? ""
+    }
+    var body:some View {
         NavigationStack {
             GeometryReader { geo in
-                VStack(spacing:16) {
+                Group {
                     if model.connected {
-                        RemoteSessionView(model:model,fullscreen:false,onFullscreen:{fullscreen = true})
+                        RemoteSessionView(model:model,fullscreen:false,onFullscreen:{fullscreen=true})
+                            .safeAreaInset(edge:.bottom){
+                                HStack {TimelineView(.periodic(from:.now,by:1)){_ in Label(model.room.connectionState == .connected ? "Connected to your PC" : "Reconnecting…",systemImage:model.room.connectionState == .connected ? "checkmark.circle.fill" : "arrow.trianglehead.2.clockwise").font(.footnote)};Spacer();Button("Disconnect",role:.destructive){Task{await model.stop()}}.frame(minHeight:44)}.padding(.horizontal,16).background(.regularMaterial)
+                            }
                     } else {
-                        Text(model.message).font(.footnote).padding(.horizontal)
-                        if model.saved {
-                            Label("Your saved PC",systemImage:"desktopcomputer").font(.title2.bold())
-                            Button("Connect to saved PC"){Task{await model.connect()}}.buttonStyle(.borderedProminent).controlSize(.large)
-                            Text("Use Face ID or your passcode. Connect over mobile data or another Wi-Fi network—even from another country. No QR is needed after authorization.").font(.footnote).foregroundStyle(.secondary).padding(.horizontal)
-                        }
-                        Button(model.saved ? "Authorize a different PC" : "Authorize a PC · scan once"){scanning = true}
-                        if model.pending != nil {Button("Authorize this PC"){Task{await model.authorize()}}.buttonStyle(.borderedProminent)}
-                        if model.saved {Button("Forget saved PC",role:.destructive){model.forget()}}
-                        Text("Keep the PC on, signed in and running ScreenLink. Windows sign-in and security prompts cannot be controlled remotely.").font(.footnote).foregroundStyle(.secondary).padding()
-                        Spacer()
+                        ScrollView {
+                            VStack(alignment:.leading,spacing:20) {
+                                BrandHeader(subtitle:"Your PC. Wherever you are.")
+                                if model.pending != nil {
+                                    AppCard {
+                                        Label("Confirm your PC",systemImage:"desktopcomputer.badge.checkmark").font(.title2.bold())
+                                        Text("Allow this iPhone to view your PC and use its mouse and keyboard. Only approve a PC you own.").foregroundStyle(.secondary)
+                                        DisclosureGroup("Connection details"){Text(pendingServer).font(.caption.monospaced()).textSelection(.enabled)}
+                                        Button("Allow remote access"){Task{await model.authorize()}}.buttonStyle(ScreenLinkPrimaryButton())
+                                        Text("You can revoke access at any time from your PC.").font(.footnote).foregroundStyle(.secondary)
+                                    }
+                                } else if model.saved {
+                                    AppCard {
+                                        HStack {Image(systemName:"desktopcomputer").font(.system(size:38,weight:.light)).foregroundStyle(ScreenLinkStyle.accent);Spacer();Text("SAVED DEVICE").font(.caption2.weight(.semibold)).tracking(1).foregroundStyle(.secondary)}
+                                        Text("Your Windows PC").font(.title.bold()).tracking(-0.6)
+                                        Text("Your desktop, apps and files are one connection away.").foregroundStyle(.secondary)
+                                        Button{Task{await model.connect()}}label:{Label("Connect",systemImage:"arrow.up.right")}.buttonStyle(ScreenLinkPrimaryButton())
+                                        Label("Face ID or passcode required",systemImage:"lock.shield").font(.footnote).foregroundStyle(.secondary)
+                                    }
+                                    AppCard {
+                                        Label("Ready when you are",systemImage:"globe").font(.headline)
+                                        Text("Use another Wi-Fi network or mobile data. No new QR code needed. Keep the PC on and ScreenLink running.").font(.subheadline).foregroundStyle(.secondary)
+                                    }
+                                    Button{scanning=true}label:{Label("Add a different PC",systemImage:"plus.circle")}.frame(minHeight:44).frame(maxWidth:.infinity)
+                                } else {
+                                    AppCard {
+                                        Image(systemName:"desktopcomputer").font(.system(size:48,weight:.light)).foregroundStyle(ScreenLinkStyle.accent).accessibilityHidden(true)
+                                        Text("Take your PC with you.").font(.largeTitle.bold()).tracking(-1)
+                                        Text("Connect your own Windows PC once. Then use it from your iPhone, wherever you are.").foregroundStyle(.secondary)
+                                        Button{scanning=true}label:{Label("Add a PC",systemImage:"qrcode.viewfinder")}.buttonStyle(ScreenLinkPrimaryButton())
+                                    }
+                                    AppCard {
+                                        Text("A simple, one-time setup").font(.headline)
+                                        SetupStep(number:1,title:"Open ScreenLink on Windows",detail:"In Remote access, choose Add iPhone.")
+                                        SetupStep(number:2,title:"Scan its remote-access code",detail:"Approve your PC here. Your access is saved securely on this iPhone.")
+                                    }
+                                }
+                                if model.working || model.message != "Authorize this iPhone using the Remote PC QR in your Windows app." {InfoBanner(text:model.message)}
+                            }.padding(20).frame(maxWidth:620).frame(maxWidth:.infinity)
+                        }.background(ScreenLinkStyle.canvas)
                     }
                 }
-                .onChange(of:geo.size.width > geo.size.height){_,landscape in if landscape && model.connected {fullscreen = true}}
-                .onChange(of:model.connected){_,connected in if connected && geo.size.width > geo.size.height {fullscreen = true};if !connected {fullscreen = false}}
+                .onChange(of:geo.size.width > geo.size.height){_,landscape in if landscape && model.connected{fullscreen=true}}
+                .onChange(of:model.connected){_,connected in if connected && geo.size.width > geo.size.height{fullscreen=true};if !connected{fullscreen=false}}
             }
-            .navigationTitle("Remote PC")
+            .navigationTitle("My PC").navigationBarTitleDisplayMode(.inline)
+            .toolbar{ToolbarItem(placement:.topBarTrailing){Button{help=true}label:{Image(systemName:"questionmark.circle")}.accessibilityLabel("Help with remote access")}}
             .disabled(model.working)
-            .overlay{if model.working {ProgressView().padding().background(.regularMaterial)}}
-            .sheet(isPresented:$scanning){NavigationStack{QRScanner{text in scanning = false;model.receive(text)}onError:{error in scanning = false;model.message = error}.toolbar{Button("Cancel"){scanning = false}}}}
-            .fullScreenCover(isPresented:$fullscreen){
-                RemoteSessionView(model:model,fullscreen:true,onFullscreen:{fullscreen = false})
-                    .ignoresSafeArea().statusBarHidden(true).persistentSystemOverlays(.hidden)
-                    .onChange(of:model.connected){_,connected in if !connected {fullscreen = false}}
-            }
+            .overlay{if model.working{ProgressView("Finding your PC…").padding(24).background(.regularMaterial,in:RoundedRectangle(cornerRadius:20))}}
+            .sheet(isPresented:$help){ScreenLinkInfoSheet()}
+            .sheet(isPresented:$scanning){NavigationStack{QRScanner{text in scanning=false;model.receive(text)}onError:{error in scanning=false;model.message=error}.navigationTitle("Scan remote-access code").navigationBarTitleDisplayMode(.inline).toolbar{Button("Cancel"){scanning=false}}}}
+            .fullScreenCover(isPresented:$fullscreen){RemoteSessionView(model:model,fullscreen:true,onFullscreen:{fullscreen=false}).ignoresSafeArea().statusBarHidden(true).persistentSystemOverlays(.hidden).onChange(of:model.connected){_,connected in if !connected{fullscreen=false}}}
         }
     }
 }

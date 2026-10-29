@@ -8,6 +8,17 @@ $('#server').value=localStorage.getItem('screenlink-server')||(location.protocol
 function error(e){$('#error').textContent=e.message||String(e);}
 async function api(path,method='GET',data){const r=await fetch(base+path,{method,headers:{Authorization:`Bearer ${owner}`,'Content-Type':'application/json'},body:data?JSON.stringify(data):undefined});const body=await r.json();if(!r.ok)throw Error(body.error||'Server request failed');return body;}
 function status(s){$('#status').textContent=s;}
+function showMode(mode){
+ const remote=mode==='remote';$('#viewer').hidden=remote;$('#mirror-sidebar').hidden=remote;$('#remote-panel').hidden=!remote;
+ $('#tab-mirror').setAttribute('aria-pressed',String(!remote));$('#tab-remote').setAttribute('aria-pressed',String(remote));
+ $('#fullscreen').hidden=remote;localStorage.setItem('screenlink-mode',mode);
+}
+$('#tab-mirror').onclick=()=>showMode('mirror');$('#tab-remote').onclick=()=>showMode('remote');
+$('#open-help').onclick=()=>$('#help-dialog').showModal();$('#close-help').onclick=()=>$('#help-dialog').close();
+const savedPreset=localStorage.getItem('screenlink-preset');if(['fast','balanced','detail'].includes(savedPreset))$('#preset').value=savedPreset;
+$('#preset').onchange=()=>localStorage.setItem('screenlink-preset',$('#preset').value);
+$('#server').oninvalid=()=>{$('#connection-details').open=true;};$('#owner').oninvalid=()=>{$('#connection-details').open=true;};
+
 function hideVideo(){video.srcObject=null;video.style.display='none';$('#placeholder').hidden=false;}
 const audioTracks=new Map();
 async function disconnectLocal(){clearInterval(poll);poll=null;const old=room;room=null;if(old)await old.disconnect();for(const a of audioTracks.values())a.remove();audioTracks.clear();hideVideo();}
@@ -31,7 +42,7 @@ $('#setup').onsubmit=async e=>{
   room.on(RoomEvent.ParticipantDisconnected,()=>{hideVideo();status('iPhone disconnected');});
   room.on(RoomEvent.Disconnected,()=>{hideVideo();status('Session disconnected');});
   await room.connect(pair.serverUrl,pair.token,{autoSubscribe:true});
-  $('#setup').hidden=true;$('#pairing').hidden=false;status('Scan the QR with your iPhone');
+  $('#setup').hidden=true;$('#pairing').hidden=false;status('Ready to mirror · scan on your iPhone');
   poll=setInterval(async()=>{try{const s=await api('/api/session');if(s.id!==pair?.id){await disconnectLocal();$('#pairing').hidden=true;$('#setup').hidden=false;pair=null;status('Session expired or replaced');}else if(s.claimed)$('#expires').textContent='Paired · Approve sharing on your iPhone';}catch(e){error(e);}},5000);
  }catch(e){error(e);await disconnectLocal();status('Setup needs attention');}finally{creating=false;$('#create').disabled=false;}
 };
@@ -63,7 +74,7 @@ if(window.screenLink){
  try{
   const setup=await window.screenLink.getLocalSetup();
   if(setup?.error)throw Error(setup.error);
-  if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;base=setup.server;owner=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();$('#remote-panel').hidden=false;await initRemote(api);}
+  if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;base=setup.server;owner=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();await initRemote(api);$('#tab-remote').disabled=false;showMode(localStorage.getItem('screenlink-mode')||'mirror');}
   else{status('Ready to set up');$('#create').disabled=false;}
  }catch(e){error(e);status('Connection needs attention');$('#create').disabled=false;}
  window.screenLink.onConnectionLost(()=>{status('Pairing connection stopped');$('#error').textContent='The temporary pairing connection stopped. Stop sharing on your iPhone and restart ScreenLink.';});

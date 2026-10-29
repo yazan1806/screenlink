@@ -1,6 +1,6 @@
 {
   "name": "screenlink",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "description": "Your personal iPhone screen receiver",
   "author": "ScreenLink",
@@ -17,8 +17,10 @@
     "qrcode": "1.5.4"
   },
   "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
     "electron": "45.1.0",
     "electron-builder": "26.18.0",
+    "png-to-ico": "3.0.2",
     "vite": "^7.0.0"
   },
   "build": {
@@ -30,11 +32,14 @@
     "files": [
       "dist/**/*",
       "main.cjs",
-      "preload.cjs"
+      "preload.cjs",
+      "assets/icon.ico"
     ],
     "win": {
       "target": "portable",
-      "signAndEditExecutable": false
+      "signAndEditExecutable": true,
+      "signExecutable": false,
+      "icon": "assets/icon.ico"
     },
     "artifactName": "ScreenLink-Windows-${version}.${ext}",
     "extraResources": [

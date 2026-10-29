@@ -60,7 +60,7 @@ async function startPersonalConnection(){
   return {server:address,owner:localKey};
 }
 app.whenReady().then(()=>{
-  window=new BrowserWindow({width:1380,height:900,minWidth:900,minHeight:660,backgroundColor:'#0b1019',title:'ScreenLink',autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
+  window=new BrowserWindow({width:1380,height:900,minWidth:900,minHeight:660,backgroundColor:'#0b1019',title:'ScreenLink',icon:path.join(__dirname,'assets','icon.ico'),autoHideMenuBar:true,webPreferences:{preload:path.join(__dirname,'preload.cjs'),contextIsolation:true,nodeIntegration:false,sandbox:true}});
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));
   window.webContents.on('will-navigate',e=>e.preventDefault());
   startup=startPersonalConnection().catch(async e=>{await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'error',error:e.message})).catch(()=>{});return {error:e.message};});

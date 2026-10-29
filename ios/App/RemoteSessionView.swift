@@ -29,7 +29,8 @@ struct RemoteSessionView: View {
                                 .allowsHitTesting(false)
                             Image(systemName:"cursorarrow")
                                 .font(.system(size:27,weight:.bold))
-                                .foregroundStyle(.white).shadow(color:.black,radius:2)
+                                .foregroundStyle(.white)
+        .environment(\.colorScheme,.dark).shadow(color:.black,radius:2)
                                 .position(x:(geo.size.width-width)/2 + model.pointer.x*width + 8,
                                           y:(geo.size.height-height)/2 + model.pointer.y*height + 11)
                                 .allowsHitTesting(false)
@@ -44,7 +45,7 @@ struct RemoteSessionView: View {
                 HStack(spacing:12) {
                     if !fullscreen {Text("Touchpad mouse").font(.footnote)}
                     if fullscreen {
-                        Button {fill.toggle()} label:{Image(systemName:fill ? "arrow.down.right.and.arrow.up.left" : "arrow.up.left.and.arrow.down.right")}
+                        Button {fill.toggle()} label:{Text(fill ? "Fit" : "Fill").font(.subheadline.weight(.semibold))}
                             .accessibilityLabel(fill ? "Fit entire desktop" : "Fill phone screen")
                     }
                     Button {keyboard.toggle();controls = false} label:{Image(systemName:"keyboard")}.accessibilityLabel("Keyboard")

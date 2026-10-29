@@ -12,9 +12,10 @@ struct ScreenLinkApp: App {
     @State private var tab = RemoteModel.hasSavedCredential() ? 1 : 0
     var body: some Scene { WindowGroup {
         TabView(selection:$tab){
-            ShareView(model:model).disabled(remote.connected).tabItem{Label("Mirror iPhone",systemImage:"iphone")}.tag(0)
-            RemoteView(model:remote).disabled(model.connected).tabItem{Label("Remote PC",systemImage:"desktopcomputer")}.tag(1)
-        }.onOpenURL{url in
+            ShareView(model:model).disabled(remote.connected).tabItem{Label("Mirror",systemImage:"iphone")}.tag(0)
+            RemoteView(model:remote).disabled(model.connected).tabItem{Label("My PC",systemImage:"desktopcomputer")}.tag(1)
+            ScreenLinkSettingsView(remote:remote).tabItem{Label("Settings",systemImage:"gearshape")}.tag(2)
+        }.tint(ScreenLinkStyle.accent).onOpenURL{url in
             if url.host == "remote" {tab = 1;remote.receive(url.absoluteString)}
             else {tab = 0;model.receive(url.absoluteString)}
         }
@@ -144,59 +145,64 @@ final class ShareModel {
 }
 
 struct ShareView: View {
-    @Bindable var model: ShareModel
-    @State private var scanning = false
-    @State private var pasted = ""
-    var body: some View {
+    @Bindable var model:ShareModel
+    @State private var scanning=false
+    @State private var pasted=""
+    @State private var help=false
+    var body:some View {
         NavigationStack {
-            Form {
-                Section {
-                    Label("Your screen. Anywhere.", systemImage: "iphone.and.arrow.forward")
-                        .font(.title2).fontWeight(.semibold)
-                    Text(model.message)
-                }
-                if !model.connected {
-                    Section("Pair with your PC") {
-                        Button("Scan QR code", systemImage: "qrcode.viewfinder") { scanning = true }
-                        TextField("Or paste a ScreenLink pairing link", text: $pasted)
-                            .textInputAutocapitalization(.never).autocorrectionDisabled()
-                        Button("Read pairing link") { model.receive(pasted); pasted = "" }
-                    }
-                    if let pairing = model.pairing {
-                        Section("Confirm your server") {
-                            Text(pairing.server.absoluteString).font(.footnote).textSelection(.enabled)
-                            Text("This must match the server address in your PC app.").font(.footnote)
-                            Button("Connect to my PC") { Task { await model.connect() } }
+            ScrollView {
+                VStack(alignment:.leading,spacing:20) {
+                    BrandHeader(subtitle:"Bring your iPhone to the big screen.")
+                    if !model.connected {
+                        AppCard {
+                            Image(systemName:"iphone.and.arrow.forward").font(.system(size:42,weight:.light)).foregroundStyle(ScreenLinkStyle.accent).accessibilityHidden(true)
+                            Text("Share your iPhone.").font(.largeTitle.bold()).tracking(-1)
+                            Text("See your screen and hear app audio on your PC. Works across Wi-Fi and mobile data.").foregroundStyle(.secondary)
+                            Button{scanning=true}label:{Label("Scan mirror code",systemImage:"qrcode.viewfinder")}.buttonStyle(ScreenLinkPrimaryButton())
+                            DisclosureGroup("Use a pairing link instead") {
+                                TextField("Paste ScreenLink link",text:$pasted).textInputAutocapitalization(.never).autocorrectionDisabled().textFieldStyle(.roundedBorder)
+                                Button("Read link"){model.receive(pasted);pasted=""}.padding(.top,8)
+                            }.font(.subheadline)
                         }
-                    }
-                } else {
-                    Section("Screen sharing") {
-                        TimelineView(.periodic(from: .now, by: 1)) { _ in
-                            Text("Connection: \(String(describing: model.room.connectionState))")
-                            if !model.room.localParticipant.isScreenShareEnabled() {
-                                Button("Share Screen", systemImage: "rectangle.on.rectangle") { Task { await model.share() } }
+                        if let pairing=model.pairing {
+                            AppCard {
+                                Label("Ready to connect",systemImage:"checkmark.circle").font(.headline)
+                                Text("Only connect if this is the address shown by your PC.").font(.subheadline).foregroundStyle(.secondary)
+                                Text(pairing.server.absoluteString).font(.caption.monospaced()).textSelection(.enabled)
+                                Button("Connect to PC"){Task{await model.connect()}}.buttonStyle(ScreenLinkPrimaryButton())
+                            }
+                        } else {
+                            AppCard {
+                                Text("Get connected").font(.headline)
+                                SetupStep(number:1,title:"Open ScreenLink on your PC",detail:"Choose Mirror iPhone to display a private pairing code.")
+                                SetupStep(number:2,title:"Scan the code above",detail:"You'll confirm the PC and approve sharing on your iPhone.")
                             }
                         }
-                        Button("Stop and disconnect", role: .destructive) { Task { await model.stop() } }
+                    } else {
+                        AppCard {
+                            Label("PC connected",systemImage:"checkmark.circle.fill").font(.headline).foregroundStyle(ScreenLinkStyle.accent)
+                            Text("Choose what to share.").font(.title.bold())
+                            Text("Apple will ask you to approve your screen. Sharing can include other apps and their audio.").foregroundStyle(.secondary)
+                            TimelineView(.periodic(from:.now,by:1)){_ in
+                                if !model.room.localParticipant.isScreenShareEnabled(){
+                                    Button{Task{await model.share()}}label:{Label("Share screen",systemImage:"rectangle.on.rectangle")}.buttonStyle(ScreenLinkPrimaryButton())
+                                } else {Label("Screen sharing is active",systemImage:"record.circle").foregroundStyle(.red)}
+                            }
+                            Button("Stop sharing and disconnect",role:.destructive){Task{await model.stop()}}.frame(minHeight:44)
+                        }
                     }
-                }
-                Section {
-                    Text("Works on different Wi-Fi networks or mobile data. Quality adapts to your connection. Video passes through your configured media service using encrypted transport.")
-                        .font(.footnote)
-                }
-            }
-            .navigationTitle("ScreenLink")
-            .disabled(model.working)
-            .overlay { if model.working { ProgressView().padding().background(.regularMaterial,in:RoundedRectangle(cornerRadius:16)) } }
-            .sheet(isPresented: $scanning) {
-                NavigationStack {
-                    QRScanner { text in scanning = false; model.receive(text) } onError: { text in scanning = false; model.message = text }
-                        .navigationTitle("Scan your PC’s QR")
-                        .toolbar { Button("Cancel") { scanning = false } }
-                }
-            }
+                    InfoBanner(text:model.message)
+                    Label("Sharing starts only after your approval.",systemImage:"lock.shield").font(.footnote).foregroundStyle(.secondary).padding(.horizontal,4)
+                }.padding(20).frame(maxWidth:620).frame(maxWidth:.infinity)
+            }.background(ScreenLinkStyle.canvas)
+                .navigationTitle("Mirror").navigationBarTitleDisplayMode(.inline)
+                .toolbar{ToolbarItem(placement:.topBarTrailing){Button{help=true}label:{Image(systemName:"questionmark.circle")}.accessibilityLabel("Help with mirroring")}}
+                .disabled(model.working)
+                .overlay{if model.working{ProgressView("Connecting…").padding(24).background(.regularMaterial,in:RoundedRectangle(cornerRadius:20))}}
+                .sheet(isPresented:$help){ScreenLinkInfoSheet()}
+                .sheet(isPresented:$scanning){NavigationStack{QRScanner{text in scanning=false;model.receive(text)}onError:{text in scanning=false;model.message=text}.navigationTitle("Scan mirror code").navigationBarTitleDisplayMode(.inline).toolbar{Button("Cancel"){scanning=false}}}}
         }
-        .tint(.mint)
     }
 }
 
