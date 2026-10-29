@@ -4,6 +4,8 @@ const fs=require('node:fs/promises');
 const {existsSync}=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {spawn}=require('node:child_process');
+const os=require('node:os');
+const {candidateRuntimeDirs,resolveSetup}=require('./runtime-paths.cjs');
 app.commandLine.appendSwitch('autoplay-policy','no-user-gesture-required');
 app.setAppUserModelId('personal.screenlink.desktop');
 if(!app.requestSingleInstanceLock())app.exit(0);
@@ -11,8 +13,10 @@ app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore(
 let window,localServer,tunnel,inputHost,localOrigin,localKey,powerBlock,quitting=false,startup,remoteEnabled=false;
 // Portable launchers can replace environment directory values. Prefer the user's
 // stable Windows profile location where setup stored the private configuration.
-const runtimeCandidates=[path.join(app.getPath('home'),'AppData','Local','ScreenLink'),path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink')];
-const runtimeDir=runtimeCandidates.find(dir=>existsSync(path.join(dir,'server.env'))&&existsSync(path.join(dir,'cloudflared.exe')))||runtimeCandidates[0];
+let osHome;try{osHome=os.userInfo().homedir;}catch{}
+const runtimeInputs={osHome,userProfile:process.env.USERPROFILE,localAppData:process.env.LOCALAPPDATA,home:app.getPath('home'),appData:app.getPath('appData'),userData:app.getPath('userData')};
+const runtimeCandidates=candidateRuntimeDirs(runtimeInputs);
+let runtimeDir=runtimeCandidates[0];
 function stopInputHost(){
   const host=inputHost;inputHost=null;
   if(!host)return;
@@ -25,8 +29,14 @@ function parsePrivateEnv(text){
   return values;
 }
 async function startPersonalConnection(){
+  const found=await resolveSetup(runtimeCandidates);
+  const diagnosticDir=found.directory||runtimeCandidates[0];
+  await fs.mkdir(diagnosticDir,{recursive:true});
+  // Paths and filesystem error codes only. Never write configuration contents or credentials.
+  await fs.writeFile(path.join(diagnosticDir,'startup-diagnostics.json'),JSON.stringify({version:app.getVersion(),inputs:runtimeInputs,selected:found.directory,checks:found.checks},null,2));
+  if(!found.directory)throw Error('ScreenLink could not read its saved setup. Keep this Windows account signed in and choose Restart connection. Diagnostic details are saved in your ScreenLink folder.');
+  runtimeDir=found.directory;
   const configPath=path.join(runtimeDir,'server.env'),binary=path.join(runtimeDir,'cloudflared.exe');
-  try{await fs.access(configPath);await fs.access(binary);}catch{return {error:'Automatic setup files were not found for this Windows account. Your saved setup must be restored before automatic pairing can start.'};}
   await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'starting',pid:process.pid}));
   const env=parsePrivateEnv(await fs.readFile(configPath,'utf8'));
   if(!env.LIVEKIT_API_SECRET||!env.SCREENLINK_OWNER_KEY)throw Error('The private ScreenLink configuration is incomplete.');
@@ -65,6 +75,7 @@ app.whenReady().then(()=>{
   window.webContents.on('will-navigate',e=>e.preventDefault());
   startup=startPersonalConnection().catch(async e=>{await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'error',error:e.message})).catch(()=>{});return {error:e.message};});
   ipcMain.handle('screenlink:local-setup',event=>{if(event.sender!==window.webContents)throw Error('Unsupported caller');return startup;});
+  ipcMain.handle('screenlink:restart',event=>{if(event.sender!==window.webContents)throw Error('Unsupported caller');app.relaunch({execPath:process.env.PORTABLE_EXECUTABLE_FILE||process.execPath,args:[]});app.quit();});
   ipcMain.handle('screenlink:remote-enabled',async(event,enabled)=>{
     if(event.sender!==window.webContents||typeof enabled!=='boolean')throw Error('Unsupported caller');
     remoteEnabled=enabled;

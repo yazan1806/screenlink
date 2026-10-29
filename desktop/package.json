@@ -1,6 +1,6 @@
 {
   "name": "screenlink",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Your personal iPhone screen receiver",
   "author": "ScreenLink",
@@ -10,7 +10,8 @@
     "dev": "vite --host 127.0.0.1",
     "build": "vite build --base=./ && esbuild ../server/app.mjs --bundle --platform=node --format=esm --outfile=backend/app.mjs",
     "start": "electron .",
-    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File build-input.ps1 && npm run build && electron-builder --win portable --x64"
+    "package": "powershell -NoProfile -ExecutionPolicy Bypass -File build-input.ps1 && npm run build && electron-builder --win portable --x64",
+    "test": "node --test runtime-paths.test.cjs"
   },
   "dependencies": {
     "livekit-client": "2.23.0",
@@ -33,7 +34,8 @@
       "dist/**/*",
       "main.cjs",
       "preload.cjs",
-      "assets/icon.ico"
+      "assets/icon.ico",
+      "runtime-paths.cjs"
     ],
     "win": {
       "target": "portable",

@@ -26,6 +26,7 @@ const audioTracks=new Map();
 async function disconnectLocal(){clearInterval(poll);poll=null;const old=room;room=null;if(old)await old.disconnect();for(const a of audioTracks.values())a.remove();audioTracks.clear();hideVideo();}
 async function end(){try{await api('/api/session','DELETE');await disconnectLocal();pair=null;$('#pairing').hidden=true;$('#setup').hidden=false;status('Session ended');$('#error').textContent='';$('#notice').textContent='The media room was closed. Create a fresh code to reconnect.';}catch(e){error(e);}}
 $('#end').onclick=end;
+$('#restart-connection').onclick=()=>window.screenLink?.restartConnection();
 $('#setup').onsubmit=async e=>{
  e.preventDefault();if(creating)return;creating=true;$('#create').disabled=true;$('#error').textContent='';$('#notice').textContent='';
  try{
@@ -78,6 +79,6 @@ if(window.screenLink){
   if(setup?.error)throw Error(setup.error);
   if(setup){$('#server').value=setup.server;$('#owner').value=setup.owner;base=setup.server;owner=setup.owner;$('#notice').textContent='Personal connection ready. Keep ScreenLink running while sharing.';$('#create').disabled=false;$('#setup').requestSubmit();await initRemote(api);$('#tab-remote').disabled=false;showMode(localStorage.getItem('screenlink-mode')||'mirror');}
   else{status('Ready to set up');$('#create').disabled=false;}
- }catch(e){error(e);status('Connection needs attention');$('#create').disabled=false;}
+ }catch(e){error(e);status('Connection needs attention');$('#create').disabled=false;$('#restart-connection').hidden=false;}
  window.screenLink.onConnectionLost(()=>{status('Pairing connection stopped');$('#error').textContent='The temporary pairing connection stopped. Stop sharing on your iPhone and restart ScreenLink.';});
 }
