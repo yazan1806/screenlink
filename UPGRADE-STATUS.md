@@ -1,4 +1,4 @@
-# ScreenLink 0.4 upgrade
+# ScreenLink Windows 0.4.1 / iPhone 0.4.0 upgrade
 
 Implemented in source:
 
@@ -15,3 +15,6 @@ Verification: backend authorization/expiry/revocation tests pass; Windows build 
 Limits: iOS controls its screen-capture rate; 60 fps is a requested encoding ceiling, not a measured guarantee. The current SDK does not expose automatic suppression of the iPhone speaker. Lower the phone volume for PC-only listening; capture behavior still needs physical-device verification. Protected content may exclude audio/video. The PC must remain on, signed in, awake and running ScreenLink. Windows secure desktop, elevated windows, wake-from-off and remote power-on are not supported. Remote control currently covers the primary monitor and basic touch/keyboard input, not a complete desktop-client feature set. Internet media uses the configured LiveKit service and its quotas. Cloudflare Quick Tunnels have no production uptime guarantee. Media transport is encrypted, but application-level E2EE is not enabled.
 
 The updated IPA must be signed and installed before the new phone features can work. Building an IPA alone does not install it or verify its behavior on a physical iPhone.
+
+Cloud build passed for the iPhone (release 0.4.0, build 4), Windows package and backend checks: https://github.com/yazan1806/screenlink/actions/runs/40918196623
+The delivered Windows 0.4.1 additionally has a dedicated ScreenLink startup entry and an automatic-sleep blocker while remote mode is enabled. Its local package compiled successfully.
