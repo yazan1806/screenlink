@@ -1,13 +1,14 @@
-const {app,BrowserWindow,ipcMain,desktopCapturer,screen}=require('electron');
+const {app,BrowserWindow,ipcMain,desktopCapturer,screen,powerSaveBlocker}=require('electron');
 const path=require('node:path');
 const fs=require('node:fs/promises');
 const {existsSync}=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {spawn}=require('node:child_process');
 app.commandLine.appendSwitch('autoplay-policy','no-user-gesture-required');
+app.setAppUserModelId('personal.screenlink.desktop');
 if(!app.requestSingleInstanceLock())app.exit(0);
 app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore();window.show();window.focus();}});
-let window,localServer,tunnel,inputHost,localOrigin,localKey,quitting=false,startup,remoteEnabled=false;
+let window,localServer,tunnel,inputHost,localOrigin,localKey,powerBlock,quitting=false,startup,remoteEnabled=false;
 // Portable launchers can replace environment directory values. Prefer the user's
 // stable Windows profile location where setup stored the private configuration.
 const runtimeCandidates=[path.join(app.getPath('home'),'AppData','Local','ScreenLink'),path.join(process.env.LOCALAPPDATA||app.getPath('userData'),'ScreenLink')];
@@ -61,12 +62,14 @@ app.whenReady().then(()=>{
   ipcMain.handle('screenlink:remote-enabled',async(event,enabled)=>{
     if(event.sender!==window.webContents||typeof enabled!=='boolean')throw Error('Unsupported caller');
     remoteEnabled=enabled;
+    if(enabled&&powerBlock===undefined)powerBlock=powerSaveBlocker.start('prevent-app-suspension');
+    if(!enabled&&powerBlock!==undefined){powerSaveBlocker.stop(powerBlock);powerBlock=undefined;}
     const installed=path.join(runtimeDir,'ScreenLink-Windows.exe');
     if(enabled){
       const source=process.env.PORTABLE_EXECUTABLE_FILE;
       if(source&&path.resolve(source)!==path.resolve(installed))await fs.copyFile(source,installed);
-      if(existsSync(installed))app.setLoginItemSettings({openAtLogin:true,path:installed});
-    }else app.setLoginItemSettings({openAtLogin:false,path:installed});
+      if(existsSync(installed))app.setLoginItemSettings({name:'ScreenLink',openAtLogin:true,path:installed});
+    }else app.setLoginItemSettings({name:'ScreenLink',openAtLogin:false,path:installed});
     if(!enabled){inputHost?.kill();inputHost=null;}
   });
   ipcMain.handle('screenlink:desktop-source',async event=>{
