@@ -7,7 +7,7 @@ Original geometric vector artwork created for this project. Two offset screen co
 - Ink #0C1829
 - Native light-mode action color #006F71; dark mode uses mint.
 
-Assets: screenlink-mark.svg (transparent), screenlink-icon.svg (full-bleed square), wordmark-light.svg / wordmark-dark.svg (for light/dark backgrounds), ScreenLink-Icon-1024.png (RGB, opaque, 1024px).
+Assets: screenlink-mark.svg (transparent), screenlink-icon.svg (full-bleed square), screenlink-wordmark-light.svg / screenlink-wordmark-dark.svg (for light/dark backgrounds), ScreenLink-Icon-1024.png (RGB, opaque, 1024px).
 
 The wordmark uses system Segoe UI/Arial fallbacks; font files are not distributed. Keep generous clear space around the symbol. Do not stretch, rotate or add effects. The OS supplies iPhone icon corner masking. No Apple or Microsoft logos are incorporated.
 

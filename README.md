@@ -7,6 +7,10 @@ A personal iPhone-to-Windows screen mirroring app with QR pairing and internet s
 - **Pairing service:** single-use, expiring QR credentials; authenticated PC controls; short-lived, permission-scoped media tokens.
 - **Video:** H.264-preferred WebRTC through a configurable LiveKit media service, with NAT traversal and TURN fallback.
 
+## 0.6 product preview
+
+A new original identity and guided device workflows are now implemented. My PC, Mirror and Settings have clearer iPhone navigation. The Windows app separates Mirror iPhone from Remote access. Brand sources and app icons are in `brand/`; public-release drafts and remaining gates are in [store/APP-STORE-READINESS.md](store/APP-STORE-READINESS.md). This is a personal preview, not an App Store submission. See [UPGRADE-STATUS.md](UPGRADE-STATUS.md) for validation and limitations.
+
 ## Get started
 
 ### Personal PC connection (v0.3)

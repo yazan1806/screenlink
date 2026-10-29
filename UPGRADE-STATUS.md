@@ -1,3 +1,17 @@
+# Version 0.6.0 — a simpler, branded ScreenLink
+
+Delivered: an original linked-screen S logo in editable SVG, light/dark wordmarks, opaque RGB 1024px app icon, native iPhone asset catalog, and matching Windows ICO/executable metadata. The iPhone has guided My PC and Mirror cards, a prominent saved-PC Connect action, secondary advanced/link setup, Settings, Help, Privacy overview and confirmed removal of a saved PC. The Windows companion has two clear task panels, a quieter connection form, collapsible quality/audio options, current task status, QR consumption/expiry feedback and explicit revocation confirmation.
+
+Validation: backend tests and frontend build passed. All referenced frontend IDs were checked for duplicates/missing controls. Windows packaging passed; native visual checks covered Mirror, Remote access and Help at desktop/narrower window widths. The actual configured PC and metadata-only discovery participant remained connected through LiveKit, and existing device authorizations were preserved. The startup launcher matches the delivered EXE. Windows version resources report ScreenLink 0.6.0.
+
+Cloud build passed: https://github.com/yazan1806/screenlink/actions/runs/40942850784 . The downloaded iPhone artifact's SHA-256 matched GitHub's artifact digest. IPA metadata reports 0.6.0 build 6 and includes its AppIcon, asset catalog and privacy manifest. The 1024px source icon is RGB without an alpha channel.
+
+The new iPhone UI needs installing and physical-device QA; compilation is not that QA. Store materials are drafts, not a submission or approval. See store/APP-STORE-READINESS.md for the concrete public-release gaps and store/PRIVACY-INVENTORY.md for the working data inventory. Temporary hosting, general-customer PC provisioning, support/policy publication, review access and distribution signing remain release work.
+
+---
+
+Previous release notes:
+
 # Version 0.5.0: fullscreen, touchpad mouse, saved PC
 
 - A true full-screen cover replaces the old stacked fullscreen layout. It hides navigation/tab bars, status bar and the large keyboard/control rows. Rotate to landscape while connected to open it automatically. Compact keyboard/mouse/exit overlays remain available. Fill covers the phone display (cropping when aspect ratios differ); Fit shows the complete desktop with proportional borders.
