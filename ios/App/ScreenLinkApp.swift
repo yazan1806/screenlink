@@ -12,8 +12,8 @@ struct ScreenLinkApp: App {
     @State private var tab = 0
     var body: some Scene { WindowGroup {
         TabView(selection:$tab){
-            ShareView(model:model).tabItem{Label("Mirror iPhone",systemImage:"iphone")}.tag(0)
-            RemoteView(model:remote).tabItem{Label("Remote PC",systemImage:"desktopcomputer")}.tag(1)
+            ShareView(model:model).disabled(remote.connected).tabItem{Label("Mirror iPhone",systemImage:"iphone")}.tag(0)
+            RemoteView(model:remote).disabled(model.connected).tabItem{Label("Remote PC",systemImage:"desktopcomputer")}.tag(1)
         }.onOpenURL{url in
             if url.host == "remote" {tab = 1;remote.receive(url.absoluteString)}
             else {tab = 0;model.receive(url.absoluteString)}

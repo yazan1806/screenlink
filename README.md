@@ -33,4 +33,4 @@ Presets target 720p, 1080p, or a 2560-pixel capture bound, with up to 60 fps and
 
 Inside `server`, run `npm ci` then `npm test` for backend checks. See `.env.example` for configuration. Inside `desktop`, run `npm ci` then `npm run dev`, or `npm run package` to build the Windows executable. The generated Xcode project is created from `ios/project.yml` with XcodeGen.
 
-Video is transport-encrypted, but application-level end-to-end encryption is not enabled. The configured media service must be trusted. This version does not include audio, phone control, recording, or a hosted production deployment. Third-party dependencies are described in [THIRD-PARTY.md](THIRD-PARTY.md).
+Video is transport-encrypted, but application-level end-to-end encryption is not enabled. The configured media service must be trusted. Version 0.4 adds app-audio capture and a separate authorized Remote PC mode. See [UPGRADE-STATUS.md](UPGRADE-STATUS.md) for implementation, validation and limits. Phone control, recording and production hosting are not included. Third-party dependencies are described in [THIRD-PARTY.md](THIRD-PARTY.md).

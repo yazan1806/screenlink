@@ -99,3 +99,11 @@ Before calling this ready: complete the cloud iPhone build, verify free signing 
 - Checks: inside `server`, run `npm test`. These verify configuration handling, owner authentication, JWT permissions and expiration, duplicate claim rejection, malformed/oversize requests, expired/replaced codes, and correct reporting when room deletion fails. Tests use a fake media admin service; they do **not** test video transmission or Apple signing.
 
 Sources: [Apple iOS screen capture](https://developer.apple.com/documentation/screencapturekit/capturing-screen-content-on-ios), [LiveKit iOS capture guide](https://github.com/livekit/client-sdk-swift/blob/2.19.0/Docs/ios-screen-sharing.md), [GitHub cloud Mac image](https://github.blog/changelog/2026-09-10-xcode-27-runner-image-now-runs-on-macos-27/), [AltStore free-signing limitations](https://faq.altstore.io/altstore-classic/your-altstore).
+
+## Version 0.4 on this configured PC
+
+Launch `ScreenLink-Windows.exe`. Server/key load automatically from the private LocalAppData setup. No LiveKit API secret belongs in the form. Use Auto/Portrait/Landscape and Fullscreen in the viewer. The new phone IPA is required for app audio and Remote PC mode. PC sound uses the Windows default output, with a volume and mute control in ScreenLink. iOS speaker suppression is not implemented; lower the phone speaker volume.
+
+For unattended remote control, enable Remote PC access on Windows, select Authorize an iPhone, then scan that separate QR in the iPhone Remote PC tab and approve authorization. Later connections use Face ID or the device passcode. Keep the PC on, awake and signed in. The enabled app starts at Windows sign-in. Disable and revoke all devices removes authorization and startup. The app must already be running to receive connections; it cannot power on an off PC or control Windows security prompts. Revocation is performed from Windows.
+
+Discovery tokens can reveal the current public pairing address for one year but grant no video, audio or data privileges. The revocable random device credential is required to obtain each short-lived remote-control token. After discovery-token expiry, authorize the phone again. Only hashes of device credentials are saved on the PC. The original private server configuration remains outside the repository.

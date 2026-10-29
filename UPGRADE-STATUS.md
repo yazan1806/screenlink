@@ -1,13 +1,17 @@
-# Requested upgrade
+# ScreenLink 0.4 upgrade
 
-Windows v0.3.1 adds Auto/Portrait/Landscape viewing and a fullscreen toggle inside the viewer, including an exit control. Detail is now the default pairing preset (up to a 2560px capture bound, 20 Mbps and a requested 60 fps). The installed iPhone version already understands that preset. Restarting and pairing again is required to apply it; the currently running stream has not been interrupted.
+Implemented in source:
 
-These are capture/encoding targets, not measured improvements. LiveKit's iOS 27 ScreenCaptureKit capturer states that the fps option has no effect on the underlying capture rate because iOS selects that rate. Measure motion-heavy content and actual network performance before claiming a frame-rate improvement.
+- Automatic private configuration loading in portable Windows builds; confirmed automatic QR setup in the packaged app.
+- Detail preset by default (2560px bound, 20 Mbps, requested 60 fps), portrait/landscape/auto display, and fullscreen with an exit control.
+- iPhone app-audio capture via ScreenCaptureKit and LiveKit manual-rendering audio. The microphone is not opened. PC playback has volume, mute, and an enable-audio control.
+- Separate unattended remote PC authorization: one-use 10-minute QR, random device credential saved in iPhone Keychain, Face ID/passcode authentication before connecting, server-side hashed credentials, revocation with room rotation, and permission-scoped 60-second join tokens.
+- A discovery room publishes only the current HTTPS address so an authorized phone can find the PC after its temporary tunnel address changes. Discovery credentials grant no media or control access.
+- Remote primary-monitor video, system-audio capture where supported, tap-to-click, text input, scrolling, and common keyboard keys. Input helper runs without administrator rights and accepts structured input only.
+- Enabling remote access installs a personal launcher in LocalAppData and enables launch at Windows sign-in. Disabling/revoking access removes that startup entry.
 
-Still required for the full request:
+Verification: backend authorization/expiry/revocation tests pass; Windows build and native input-helper compilation pass. Cloud iPhone compilation and physical-device audio/remote-control validation are recorded separately after execution.
 
-- Capture app audio in the iPhone companion and publish it independently of microphone input, add PC audio playback/output controls, and test behavior when the phone's volume is lowered. Automatic phone-speaker suppression has not been established and is not implemented.
-- Build and sign the updated iPhone companion after audio changes.
-- Add remote PC viewing and control. The user chose unattended access with secure authentication. This needs a separate PC capture/input component, an authenticated iPhone viewer/control mode, revocable device authorization, and explicit installation/startup configuration. A screen-sharing QR must not also grant desktop-control privileges. None of these control components are implemented yet. Remote access does not imply the ability to power on an off PC or bypass a Windows secure desktop.
+Limits: iOS controls its screen-capture rate; 60 fps is a requested encoding ceiling, not a measured guarantee. The current SDK does not expose automatic suppression of the iPhone speaker. Lower the phone volume for PC-only listening; capture behavior still needs physical-device verification. Protected content may exclude audio/video. The PC must remain on, signed in, awake and running ScreenLink. Windows secure desktop, elevated windows, wake-from-off and remote power-on are not supported. Remote control currently covers the primary monitor and basic touch/keyboard input, not a complete desktop-client feature set. Internet media uses the configured LiveKit service and its quotas. Cloudflare Quick Tunnels have no production uptime guarantee. Media transport is encrypted, but application-level E2EE is not enabled.
 
-The audio and remote-control features must not be advertised as working until those components are implemented and tested.
+The updated IPA must be signed and installed before the new phone features can work. Building an IPA alone does not install it or verify its behavior on a physical iPhone.

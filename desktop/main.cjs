@@ -4,6 +4,9 @@ const fs=require('node:fs/promises');
 const {existsSync}=require('node:fs');
 const {pathToFileURL}=require('node:url');
 const {spawn}=require('node:child_process');
+app.commandLine.appendSwitch('autoplay-policy','no-user-gesture-required');
+if(!app.requestSingleInstanceLock())app.exit(0);
+app.on('second-instance',()=>{if(window){if(window.isMinimized())window.restore();window.show();window.focus();}});
 let window,localServer,tunnel,inputHost,localOrigin,localKey,quitting=false,startup,remoteEnabled=false;
 // Portable launchers can replace environment directory values. Prefer the user's
 // stable Windows profile location where setup stored the private configuration.
@@ -54,9 +57,15 @@ app.whenReady().then(()=>{
   window.webContents.on('will-navigate',e=>e.preventDefault());
   startup=startPersonalConnection().catch(async e=>{await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'error',error:e.message})).catch(()=>{});return {error:e.message};});
   ipcMain.handle('screenlink:local-setup',event=>{if(event.sender!==window.webContents)throw Error('Unsupported caller');return startup;});
-  ipcMain.handle('screenlink:remote-enabled',(event,enabled)=>{
+  ipcMain.handle('screenlink:remote-enabled',async(event,enabled)=>{
     if(event.sender!==window.webContents||typeof enabled!=='boolean')throw Error('Unsupported caller');
     remoteEnabled=enabled;
+    const installed=path.join(runtimeDir,'ScreenLink-Windows.exe');
+    if(enabled){
+      const source=process.env.PORTABLE_EXECUTABLE_FILE;
+      if(source&&path.resolve(source)!==path.resolve(installed))await fs.copyFile(source,installed);
+      if(existsSync(installed))app.setLoginItemSettings({openAtLogin:true,path:installed});
+    }else app.setLoginItemSettings({openAtLogin:false,path:installed});
     if(!enabled){inputHost?.kill();inputHost=null;}
   });
   ipcMain.handle('screenlink:desktop-source',async event=>{
