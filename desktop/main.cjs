@@ -41,10 +41,11 @@ async function startPersonalConnection(){
     tunnel.on('error',()=>{clearTimeout(timeout);reject(Error('The temporary internet connection could not start.'));});
     tunnel.on('exit',()=>{clearTimeout(timeout);if(!found)reject(Error('The temporary internet connection stopped before it was ready.'));else if(!quitting)window?.webContents.send('screenlink:connection-lost');});
   });
+  await fs.writeFile(path.join(runtimeDir,'connection.json'),JSON.stringify({phase:'waiting',pid:process.pid,server:address,localOrigin}));
   let reachable=false;
-  for(let attempt=0;attempt<10;attempt++){
+  for(let attempt=0;attempt<30;attempt++){
     try{const r=await fetch(address+'/health',{signal:AbortSignal.timeout(3000)});const health=await r.json();if(r.ok&&health.configured){reachable=true;break;}}catch{}
-    await new Promise(resolve=>setTimeout(resolve,1000));
+    await new Promise(resolve=>setTimeout(resolve,2000));
   }
   if(!reachable)throw Error('The public pairing address is not reachable yet. Restart ScreenLink and try again.');
   config.publicUrl=address;
